@@ -1,0 +1,611 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Relationship Hierarchy Viewer — Card Flow Diagram
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Container ───────────────────────────────────────────────────────── */
+.hierarchy-container {
+    background: var(--lwc-colorBackground, #ffffff);
+    border: 1px solid var(--lwc-colorBorder, #e5e5e5);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────── */
+.header-section {
+    background: linear-gradient(135deg, #032d60 0%, #0176d3 50%, #1b96ff 100%);
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.header-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+}
+
+.header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.header-icon {
+    --sds-c-icon-color-background: rgba(255, 255, 255, 0.15);
+    --sds-c-icon-color-foreground: #ffffff;
+    --sds-c-icon-color-foreground-default: #ffffff;
+    flex-shrink: 0;
+}
+
+.header-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.header-heading {
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.context-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+    margin: 4px 0 0 0;
+}
+
+.context-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.header-stats { flex-shrink: 0; }
+
+.stat-pill {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Controls Bar ────────────────────────────────────────────────────── */
+.controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.filter-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.filter-icon {
+    --sds-c-icon-color-foreground: #706e6b;
+    --sds-c-icon-color-foreground-default: #706e6b;
+}
+
+.filter-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #706e6b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 4px;
+}
+
+.pill-filter-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    border-radius: 100px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #d8dde6;
+    background: #ffffff;
+    color: #3e3e3c;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.filter-pill:hover {
+    border-color: #0176d3;
+    color: #0176d3;
+    background: #f0f7ff;
+    box-shadow: 0 1px 4px rgba(1, 118, 211, 0.15);
+    transform: translateY(-1px);
+}
+
+.filter-pill-active {
+    background: linear-gradient(135deg, #0176d3, #1b96ff);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(1, 118, 211, 0.3);
+    font-weight: 600;
+}
+
+.filter-pill-active:hover {
+    background: linear-gradient(135deg, #014486, #0176d3);
+    color: #ffffff;
+    border-color: transparent;
+}
+
+.filter-pill-clear {
+    background: transparent;
+    border-color: transparent;
+    color: #ba0517;
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 5px 10px;
+}
+
+.filter-pill-clear:hover {
+    background: #fef1ee;
+    border-color: #ea001e;
+    color: #ea001e;
+}
+
+.toggle-section { flex-shrink: 0; }
+
+.schools-toggle {
+    --sds-c-input-toggle-color-background-checked: #0176d3;
+}
+
+/* ─── Loading / Error / Empty ─────────────────────────────────────────── */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+    gap: 16px;
+}
+
+.loading-text {
+    color: #706e6b;
+    font-size: 0.85rem;
+    animation: pulse-text 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.error-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    margin: 16px 20px;
+    background: #fef1ee;
+    border: 1px solid #ea001e;
+    border-radius: 8px;
+}
+
+.error-text { color: #ba0517; font-size: 0.85rem; margin: 0; }
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.empty-illustration {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f0f3f5, #e5e8eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.empty-heading { color: #3e3e3c; font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; }
+.empty-description { color: #706e6b; font-size: 0.85rem; margin: 0; max-width: 320px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FLOW MAP — Card-Based Tier Layout
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.flow-map-scroll {
+    padding: 28px 24px 32px;
+    overflow-x: auto;
+    overflow-y: visible;
+    background:
+        radial-gradient(circle at 20% 50%, rgba(1, 118, 211, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, rgba(124, 58, 237, 0.03) 0%, transparent 50%),
+        linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+}
+
+/* ─── Tier Section ────────────────────────────────────────────────────── */
+.tier-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.tier-focal {
+    position: relative;
+}
+
+.tier-label {
+    text-align: center;
+}
+
+.tier-badge {
+    display: inline-block;
+    padding: 4px 16px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.tier-badge-entity {
+    background: linear-gradient(135deg, #ede9fe, #ecfdf5);
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+}
+
+.tier-badge-focal {
+    background: linear-gradient(135deg, #dbeafe, #eff6ff);
+    color: #014486;
+    border: 1px solid #93c5fd;
+}
+
+.tier-badge-related {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: #0176d3;
+    border: 1px solid #93c5fd;
+}
+
+.tier-badge-school {
+    background: linear-gradient(135deg, #ecfeff, #cffafe);
+    color: #155e75;
+    border: 1px solid #67e8f9;
+}
+
+.tier-badge-parent {
+    background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+    color: #6b21a8;
+    border: 1px solid #c084fc;
+}
+
+.tier-badge-child-entity {
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    color: #7c3aed;
+    border: 1px solid #a78bfa;
+}
+
+/* ─── Tier Cards Container ────────────────────────────────────────────── */
+.tier-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    max-width: 100%;
+}
+
+.tier-cards-schools {
+    gap: 8px;
+}
+
+/* ─── Connector ───────────────────────────────────────────────────────── */
+.tier-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.connector-line {
+    width: 2px;
+    height: 20px;
+    background: linear-gradient(180deg, #93c5fd, #60a5fa);
+    border-radius: 1px;
+}
+
+.connector-arrow {
+    color: #60a5fa;
+    font-size: 0.7rem;
+    line-height: 1;
+    margin-top: -2px;
+}
+
+/* ─── Node Card ───────────────────────────────────────────────────────── */
+.node-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    min-width: 200px;
+    max-width: 280px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    position: relative;
+}
+
+.node-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 16px rgba(1, 118, 211, 0.15), 0 1px 3px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+/* Focal card — glowing "you are here" */
+.node-card-focal {
+    border-color: #60a5fa;
+    box-shadow:
+        0 0 0 3px rgba(96, 165, 250, 0.15),
+        0 4px 16px rgba(1, 118, 211, 0.12);
+    cursor: default;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+}
+
+.node-card-focal:hover {
+    transform: none;
+    box-shadow:
+        0 0 0 3px rgba(96, 165, 250, 0.15),
+        0 4px 16px rgba(1, 118, 211, 0.12);
+}
+
+/* Small school card */
+.node-card-sm {
+    min-width: 160px;
+    max-width: 220px;
+    padding: 10px 14px;
+    gap: 8px;
+}
+
+/* Card inner layout */
+.card-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.card-icon {
+    --sds-c-icon-color-foreground: #ffffff;
+    --sds-c-icon-color-foreground-default: #ffffff;
+    --sds-c-icon-color-background: transparent;
+}
+
+.node-card-sm .card-icon-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.card-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.3;
+    word-wrap: break-word;
+}
+
+.card-name-sm {
+    font-size: 0.8rem;
+}
+
+.card-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    align-self: flex-start;
+}
+
+.focal-indicator {
+    font-size: 0.7rem;
+    color: #3b82f6;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+}
+
+/* ─── Relationship Pills ──────────────────────────────────────────────── */
+.card-rel-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.rel-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.66rem;
+    font-weight: 500;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+/* ─── Downstream badge on child entity cards ──────────────────────────── */
+.card-downstream {
+    padding-top: 4px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.downstream-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: #0176d3;
+    border: 1px solid #93c5fd;
+}
+
+/* ─── Source badge ("via Child JPA") ───────────────────────────────────── */
+.card-source {
+    padding-top: 4px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.source-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.64rem;
+    font-weight: 500;
+    font-style: italic;
+    background: #faf5ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+}
+
+/* ─── Card Expander (Show/Hide Schools button on District cards) ──────── */
+.card-expander {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0 2px;
+    border-top: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.card-expander:hover {
+    opacity: 0.8;
+}
+
+.expander-icon {
+    --sds-c-icon-color-foreground: #3b82f6;
+    --sds-c-icon-color-foreground-default: #3b82f6;
+    flex-shrink: 0;
+}
+
+.expander-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #3b82f6;
+    letter-spacing: 0.02em;
+}
+
+.expander-count {
+    font-size: 0.66rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* ─── School Group (color-coded by district) ──────────────────────────── */
+.school-group {
+    margin-bottom: 16px;
+}
+
+.school-group:last-child {
+    margin-bottom: 0;
+}
+
+.school-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.school-group-dot {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.school-group-name {
+    flex: 1;
+}
+
+.school-group-count {
+    font-size: 0.68rem;
+    font-weight: 500;
+    opacity: 0.7;
+}
+
+.node-card-school-colored {
+    transition: border-color 0.2s ease;
+}
+
+/* ─── School Loading ──────────────────────────────────────────────────── */
+.school-loading {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .header-section { padding: 16px; }
+    .header-title-row { flex-wrap: wrap; }
+    .header-stats { width: 100%; margin-top: 8px; }
+    .controls-bar { flex-direction: column; align-items: flex-start; }
+    .toggle-section { width: 100%; padding-top: 4px; border-top: 1px solid #e5e5e5; }
+    .flow-map-scroll { padding: 20px 16px; }
+    .node-card { min-width: 160px; }
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Relationship_Type__c</fullName>
+    <description>Type of relationship or product line between accounts.</description>
+    <label>Relationship Type</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>MultiselectPicklist</type>
+    <visibleLines>4</visibleLines>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Liability</fullName>
+                <default>false</default>
+                <label>Liability</label>
+            </value>
+            <value>
+                <fullName>Workers Comp</fullName>
+                <default>false</default>
+                <label>Workers Comp</label>
+            </value>
+            <value>
+                <fullName>Product Line Alpha</fullName>
+                <default>false</default>
+                <label>Product Line Alpha</label>
+            </value>
+            <value>
+                <fullName>Product Line Beta</fullName>
+                <default>false</default>
+                <label>Product Line Beta</label>
+            </value>
+            <value>
+                <fullName>Product Gamma</fullName>
+                <default>false</default>
+                <label>Product Gamma</label>
+            </value>
+            <value>
+                <fullName>Product Omega</fullName>
+                <default>false</default>
+                <label>Product Omega</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

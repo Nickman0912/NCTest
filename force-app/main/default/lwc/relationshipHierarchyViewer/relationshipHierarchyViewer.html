@@ -1,0 +1,299 @@
+<template>
+    <div class="hierarchy-container">
+
+        <!-- ─── Header ─────────────────────────────────────────────────── -->
+        <div class="header-section">
+            <div class="header-title-row">
+                <lightning-icon icon-name={contextIcon} size="medium" class="header-icon"></lightning-icon>
+                <div class="header-text">
+                    <h2 class="header-heading">Relationship Hierarchy</h2>
+                    <p class="context-subtitle" if:true={contextLabel}>
+                        Viewing as <span class="context-badge">{contextLabel}</span>
+                    </p>
+                </div>
+                <div class="header-stats" if:true={totalRelationships}>
+                    <span class="stat-pill">{totalRelationships} Relationship{pluralSuffix}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Controls Bar ───────────────────────────────────────────── -->
+        <div class="controls-bar" if:true={hasData}>
+            <div class="filter-section">
+                <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
+                <span class="filter-label">Filter by Type</span>
+                <div class="pill-filter-container">
+                    <template for:each={filterOptions} for:item="opt">
+                        <button key={opt.value} class={opt.pillClass} data-value={opt.value} onclick={handleFilterToggle}>{opt.label}</button>
+                    </template>
+                    <button if:true={hasActiveFilters} class="filter-pill filter-pill-clear" onclick={handleClearFilters}>✕ Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Loading / Error / Empty ────────────────────────────────── -->
+        <div if:true={isLoading} class="loading-container">
+            <lightning-spinner alternative-text="Loading hierarchy..." size="medium"></lightning-spinner>
+            <p class="loading-text">Loading hierarchy...</p>
+        </div>
+
+        <template if:true={error}>
+            <div class="error-container">
+                <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                <p class="error-text">{errorMessage}</p>
+            </div>
+        </template>
+
+        <div if:true={showEmptyState} class="empty-state">
+            <div class="empty-illustration">
+                <lightning-icon icon-name="standard:entity" size="large" class="empty-icon"></lightning-icon>
+            </div>
+            <h3 class="empty-heading">No Relationships Found</h3>
+            <p class="empty-description">This account doesn't have any relationships configured yet.</p>
+        </div>
+
+        <!-- ─── Visual Flow Map ────────────────────────────────────────── -->
+        <div if:true={showMap} class="flow-map-scroll">
+
+            <!-- ═══ SCHOOL VIEW: Entities → District → School(focal) ═══ -->
+
+            <template if:true={hasEntityTierForSchool}>
+                <div class="tier-section">
+                    <div class="tier-label"><span class="tier-badge tier-badge-entity">Entities</span></div>
+                    <div class="tier-cards">
+                        <template for:each={entityNodesForSchool} for:item="node">
+                            <div key={node.id} class={node.cardClass} data-id={node.id} onclick={handleNodeClick}>
+                                <div class="card-icon-wrap" style={node.iconStyle}>
+                                    <lightning-icon icon-name={node.icon} size="small" class="card-icon"></lightning-icon>
+                                </div>
+                                <div class="card-body">
+                                    <span class="card-name">{node.name}</span>
+                                    <span class="card-type-badge" style={node.badgeStyle}>{node.typeLabel}</span>
+                                </div>
+                                <div class="card-rel-pills" if:true={node.hasRelTypes}>
+                                    <template for:each={node.relTypePills} for:item="pill">
+                                        <span key={pill} class="rel-pill">{pill}</span>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+            </template>
+
+            <template if:true={hasDistrictForSchool}>
+                <div class="tier-section">
+                    <div class="tier-label"><span class="tier-badge tier-badge-related">Parent District</span></div>
+                    <div class="tier-cards">
+                        <template for:each={districtNodeForSchool} for:item="node">
+                            <div key={node.id} class={node.cardClass} data-id={node.id} onclick={handleNodeClick}>
+                                <div class="card-icon-wrap" style={node.iconStyle}>
+                                    <lightning-icon icon-name={node.icon} size="small" class="card-icon"></lightning-icon>
+                                </div>
+                                <div class="card-body">
+                                    <span class="card-name">{node.name}</span>
+                                    <span class="card-type-badge" style={node.badgeStyle}>{node.typeLabel}</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+            </template>
+
+            <!-- ═══ NON-SCHOOL: Parents → Focal → Children → Grandchildren ═══ -->
+
+            <!-- PARENT TIER -->
+            <template if:true={showFocalAtTop}>
+                <template if:true={hasParentTier}>
+                    <div class="tier-section">
+                        <div class="tier-label"><span class="tier-badge tier-badge-parent">{parentTierLabel}</span></div>
+                        <div class="tier-cards">
+                            <template for:each={parentNodes} for:item="node">
+                                <div key={node.id} class={node.cardClass} data-id={node.id} onclick={handleNodeClick}>
+                                    <div class="card-icon-wrap" style={node.iconStyle}>
+                                        <lightning-icon icon-name={node.icon} size="small" class="card-icon"></lightning-icon>
+                                    </div>
+                                    <div class="card-body">
+                                        <span class="card-name">{node.name}</span>
+                                        <span class="card-type-badge" style={node.badgeStyle}>{node.typeLabel}</span>
+                                    </div>
+                                    <div class="card-rel-pills" if:true={node.hasRelTypes}>
+                                        <template for:each={node.relTypePills} for:item="pill">
+                                            <span key={pill} class="rel-pill">{pill}</span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+                </template>
+            </template>
+
+            <!-- FOCAL (non-School) -->
+            <template if:true={showFocalAtTop}>
+                <div class="tier-section tier-focal">
+                    <div class="tier-label"><span class="tier-badge tier-badge-focal">{focalTierLabel}</span></div>
+                    <div class="tier-cards">
+                        <div class={focalNode.cardClass} style={focalNode.stripeStyle}>
+                            <div class="card-icon-wrap" style={focalNode.iconStyle}>
+                                <lightning-icon icon-name={focalNode.icon} size="small" class="card-icon"></lightning-icon>
+                            </div>
+                            <div class="card-body">
+                                <span class="card-name">{focalNode.name}</span>
+                                <span class="card-type-badge" style={focalNode.badgeStyle}>{focalNode.typeLabel}</span>
+                                <span class="focal-indicator">● You are here</span>
+                            </div>
+                            <!-- School expander on focal District card -->
+                            <template if:true={focalNode.hasSchoolExpander}>
+                                <div class="card-expander" onclick={handleExpandSchools} data-district-id={focalNode.id}>
+                                    <lightning-icon icon-name={focalNode.expandIcon} size="xx-small" class="expander-icon"></lightning-icon>
+                                    <span class="expander-label">{focalNode.expandLabel}</span>
+                                    <template if:true={focalNode.schoolCount}>
+                                        <span class="expander-count">({focalNode.schoolCount})</span>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- CHILD TIER (Districts, child JPAs, etc.) -->
+            <template if:true={hasChildTier}>
+                <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+                <div class="tier-section">
+                    <div class="tier-label"><span class="tier-badge tier-badge-child-entity">{childTierLabel}</span></div>
+                    <div class="tier-cards">
+                        <template for:each={childNodes} for:item="node">
+                            <div key={node.id} class={node.cardClass} style={node.stripeStyle} data-id={node.id} onclick={handleNodeClick}>
+                                <div class="card-icon-wrap" style={node.iconStyle}>
+                                    <lightning-icon icon-name={node.icon} size="small" class="card-icon"></lightning-icon>
+                                </div>
+                                <div class="card-body">
+                                    <span class="card-name">{node.name}</span>
+                                    <span class="card-type-badge" style={node.badgeStyle}>{node.typeLabel}</span>
+                                </div>
+                                <div class="card-rel-pills" if:true={node.hasRelTypes}>
+                                    <template for:each={node.relTypePills} for:item="pill">
+                                        <span key={pill} class="rel-pill">{pill}</span>
+                                    </template>
+                                </div>
+                                <div class="card-downstream" if:true={node.childCount}>
+                                    <span class="downstream-badge">{node.childCount} District{node.childPluralSuffix}</span>
+                                </div>
+                                <!-- School expander button on District cards -->
+                                <template if:true={node.hasSchoolExpander}>
+                                    <div class="card-expander" onclick={handleExpandSchools} data-district-id={node.id}>
+                                        <lightning-icon icon-name={node.expandIcon} size="xx-small" class="expander-icon"></lightning-icon>
+                                        <span class="expander-label">{node.expandLabel}</span>
+                                        <template if:true={node.schoolCount}>
+                                            <span class="expander-count">({node.schoolCount})</span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- GRANDCHILD TIER -->
+            <template if:true={hasGrandchildTier}>
+                <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+                <div class="tier-section">
+                    <div class="tier-label"><span class="tier-badge tier-badge-related">{grandchildTierLabel}</span></div>
+                    <div class="tier-cards">
+                        <template for:each={grandchildNodes} for:item="node">
+                            <div key={node.id} class={node.cardClass} style={node.stripeStyle} data-id={node.id} onclick={handleNodeClick}>
+                                <div class="card-icon-wrap" style={node.iconStyle}>
+                                    <lightning-icon icon-name={node.icon} size="small" class="card-icon"></lightning-icon>
+                                </div>
+                                <div class="card-body">
+                                    <span class="card-name">{node.name}</span>
+                                    <span class="card-type-badge" style={node.badgeStyle}>{node.typeLabel}</span>
+                                </div>
+                                <div class="card-rel-pills" if:true={node.hasRelTypes}>
+                                    <template for:each={node.relTypePills} for:item="pill">
+                                        <span key={pill} class="rel-pill">{pill}</span>
+                                    </template>
+                                </div>
+                                <div class="card-source" if:true={node.sourceLabel}>
+                                    <span class="source-badge">via {node.sourceLabel}</span>
+                                </div>
+                                <!-- School expander button on District cards -->
+                                <template if:true={node.hasSchoolExpander}>
+                                    <div class="card-expander" onclick={handleExpandSchools} data-district-id={node.id}>
+                                        <lightning-icon icon-name={node.expandIcon} size="xx-small" class="expander-icon"></lightning-icon>
+                                        <span class="expander-label">{node.expandLabel}</span>
+                                        <template if:true={node.schoolCount}>
+                                            <span class="expander-count">({node.schoolCount})</span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- FOCAL (School view: at bottom) -->
+            <template if:true={showFocalAtBottom}>
+                <div class="tier-section tier-focal">
+                    <div class="tier-label"><span class="tier-badge tier-badge-focal">{focalTierLabel}</span></div>
+                    <div class="tier-cards">
+                        <div class={focalNode.cardClass}>
+                            <div class="card-icon-wrap" style={focalNode.iconStyle}>
+                                <lightning-icon icon-name={focalNode.icon} size="small" class="card-icon"></lightning-icon>
+                            </div>
+                            <div class="card-body">
+                                <span class="card-name">{focalNode.name}</span>
+                                <span class="card-type-badge" style={focalNode.badgeStyle}>{focalNode.typeLabel}</span>
+                                <span class="focal-indicator">● You are here</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ═══ SCHOOLS — Grouped by District with color coding ═══ -->
+            <template if:true={hasSchoolTier}>
+                <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
+                <div class="tier-section">
+                    <div class="tier-label"><span class="tier-badge tier-badge-school">Schools</span></div>
+
+                    <template if:true={isLoadingChildren}>
+                        <div class="school-loading">
+                            <lightning-spinner alternative-text="Loading schools..." size="small"></lightning-spinner>
+                        </div>
+                    </template>
+
+                    <template for:each={districtSchoolGroups} for:item="group">
+                        <div key={group.districtId} class="school-group">
+                            <div class="school-group-header" style={group.headerStyle}>
+                                <span class="school-group-dot" style={group.dotStyle}>●</span>
+                                <span class="school-group-name">{group.districtName}</span>
+                                <span class="school-group-count">{group.schools.length} schools</span>
+                            </div>
+                            <div class="tier-cards tier-cards-schools">
+                                <template for:each={group.schools} for:item="school">
+                                    <div key={school.id} class={school.cardClass} style={school.cardStyle} data-id={school.id} onclick={handleNodeClick}>
+                                        <div class="card-icon-wrap" style={school.iconStyle}>
+                                            <lightning-icon icon-name={school.icon} size="x-small" class="card-icon"></lightning-icon>
+                                        </div>
+                                        <div class="card-body">
+                                            <span class="card-name card-name-sm">{school.name}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+        </div>
+    </div>
+</template>

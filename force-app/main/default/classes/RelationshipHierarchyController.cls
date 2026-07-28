@@ -6,13 +6,11 @@
  */
 public with sharing class RelationshipHierarchyController {
 
-    // ─── DTOs ────────────────────────────────────────────────────────────
-
     public class HierarchyResult {
         @AuraEnabled public String contextRecordType;
         @AuraEnabled public String contextAccountName;
-        @AuraEnabled public List<HierarchyNode> parentEntities;  // Entities ABOVE (Secondary side — parents)
-        @AuraEnabled public List<HierarchyNode> childEntities;   // Entities BELOW (Primary side — children)
+        @AuraEnabled public List<HierarchyNode> parentEntities; 
+        @AuraEnabled public List<HierarchyNode> childEntities; 
     }
 
     public class HierarchyNode {
@@ -56,8 +54,6 @@ public with sharing class RelationshipHierarchyController {
         return result;
     }
 
-    // ─── Lazy-load Schools for a District ────────────────────────────────
-
     @AuraEnabled(cacheable=true)
     public static List<HierarchyNode> getChildSchools(Id districtId) {
         List<HierarchyNode> schoolNodes = new List<HierarchyNode>();
@@ -78,8 +74,6 @@ public with sharing class RelationshipHierarchyController {
         return getChildrenOf(entityId);
     }
 
-    // ─── Private Builders ────────────────────────────────────────────────
-
     /**
      * JPA / State Entity view:
      * - parentEntities = accounts where this entity is Primary (i.e., Secondary is the parent)
@@ -87,7 +81,6 @@ public with sharing class RelationshipHierarchyController {
      * Each child entity eagerly loads ITS children too.
      */
     private static void buildEntityHierarchy(Account entity, HierarchyResult result) {
-        // Parents: records where THIS account is Primary_Account__c → Secondary is ABOVE us
         for (Relationship__c rel : [
             SELECT Id, Secondary_Account__c, Secondary_Account__r.Name,
                    Secondary_Account__r.RecordType.DeveloperName,
@@ -106,7 +99,6 @@ public with sharing class RelationshipHierarchyController {
             ));
         }
 
-        // Children: records where THIS account is Secondary_Account__c → Primary is BELOW us
         for (Relationship__c rel : [
             SELECT Id, Primary_Account__c, Primary_Account__r.Name,
                    Primary_Account__r.RecordType.DeveloperName,
@@ -124,7 +116,6 @@ public with sharing class RelationshipHierarchyController {
                 true
             );
 
-            // Eagerly load this child's own children (one level deep)
             childNode.children = getChildrenOf(rel.Primary_Account__c);
             childNode.hasChildren = !childNode.children.isEmpty();
 
@@ -139,7 +130,6 @@ public with sharing class RelationshipHierarchyController {
      * - childEntities  = empty (Schools are loaded lazily)
      */
     private static void buildDistrictHierarchy(Account district, HierarchyResult result) {
-        // Parents: records where District is Primary → Secondary is ABOVE
         for (Relationship__c rel : [
             SELECT Id, Secondary_Account__c, Secondary_Account__r.Name,
                    Secondary_Account__r.RecordType.DeveloperName,
@@ -176,7 +166,6 @@ public with sharing class RelationshipHierarchyController {
             LIMIT 1
         ];
 
-        // The District is a parent of the School
         HierarchyNode districtNode = buildNode(
             district.Id,
             district.Name,
@@ -184,7 +173,6 @@ public with sharing class RelationshipHierarchyController {
             null, null, true
         );
 
-        // Load the District's own parents (entities above the district)
         districtNode.children = new List<HierarchyNode>();
         for (Relationship__c rel : [
             SELECT Id, Secondary_Account__c, Secondary_Account__r.Name,
@@ -232,8 +220,6 @@ public with sharing class RelationshipHierarchyController {
         }
         return nodes;
     }
-
-    // ─── Utility ─────────────────────────────────────────────────────────
 
     private static HierarchyNode buildNode(
         Id accountId,

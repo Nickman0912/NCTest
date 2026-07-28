@@ -1,7 +1,5 @@
 <template>
     <div class="hierarchy-container">
-
-        <!-- ─── Header ─────────────────────────────────────────────────── -->
         <div class="header-section">
             <div class="header-title-row">
                 <lightning-icon icon-name={contextIcon} size="medium" class="header-icon"></lightning-icon>
@@ -17,7 +15,6 @@
             </div>
         </div>
 
-        <!-- ─── Controls Bar ───────────────────────────────────────────── -->
         <div class="controls-bar" if:true={hasData}>
             <div class="filter-section">
                 <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
@@ -30,8 +27,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- ─── Loading / Error / Empty ────────────────────────────────── -->
         <div if:true={isLoading} class="loading-container">
             <lightning-spinner alternative-text="Loading hierarchy..." size="medium"></lightning-spinner>
             <p class="loading-text">Loading hierarchy...</p>
@@ -51,12 +46,7 @@
             <h3 class="empty-heading">No Relationships Found</h3>
             <p class="empty-description">This account doesn't have any relationships configured yet.</p>
         </div>
-
-        <!-- ─── Visual Flow Map ────────────────────────────────────────── -->
         <div if:true={showMap} class="flow-map-scroll">
-
-            <!-- ═══ SCHOOL VIEW: Entities → District → School(focal) ═══ -->
-
             <template if:true={hasEntityTierForSchool}>
                 <div class="tier-section">
                     <div class="tier-label"><span class="tier-badge tier-badge-entity">Entities</span></div>
@@ -81,7 +71,6 @@
                 </div>
                 <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
             </template>
-
             <template if:true={hasDistrictForSchool}>
                 <div class="tier-section">
                     <div class="tier-label"><span class="tier-badge tier-badge-related">Parent District</span></div>
@@ -101,10 +90,6 @@
                 </div>
                 <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
             </template>
-
-            <!-- ═══ NON-SCHOOL: Parents → Focal → Children → Grandchildren ═══ -->
-
-            <!-- PARENT TIER -->
             <template if:true={showFocalAtTop}>
                 <template if:true={hasParentTier}>
                     <div class="tier-section">
@@ -131,8 +116,6 @@
                     <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
                 </template>
             </template>
-
-            <!-- FOCAL (non-School) -->
             <template if:true={showFocalAtTop}>
                 <div class="tier-section tier-focal">
                     <div class="tier-label"><span class="tier-badge tier-badge-focal">{focalTierLabel}</span></div>
@@ -146,7 +129,6 @@
                                 <span class="card-type-badge" style={focalNode.badgeStyle}>{focalNode.typeLabel}</span>
                                 <span class="focal-indicator">● You are here</span>
                             </div>
-                            <!-- School expander on focal District card -->
                             <template if:true={focalNode.hasSchoolExpander}>
                                 <div class="card-expander" onclick={handleExpandSchools} data-district-id={focalNode.id}>
                                     <lightning-icon icon-name={focalNode.expandIcon} size="xx-small" class="expander-icon"></lightning-icon>
@@ -160,8 +142,6 @@
                     </div>
                 </div>
             </template>
-
-            <!-- CHILD TIER (Districts, child JPAs, etc.) -->
             <template if:true={hasChildTier}>
                 <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
                 <div class="tier-section">
@@ -199,8 +179,6 @@
                     </div>
                 </div>
             </template>
-
-            <!-- GRANDCHILD TIER -->
             <template if:true={hasGrandchildTier}>
                 <div class="tier-connector"><div class="connector-line"></div><div class="connector-arrow">▼</div></div>
                 <div class="tier-section">

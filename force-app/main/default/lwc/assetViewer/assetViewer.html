@@ -1,0 +1,175 @@
+<template>
+    <div class="asset-container">
+        <!-- ═══ HEADER ═══ -->
+        <div class="header-section">
+            <div class="header-title-row">
+                <lightning-icon icon-name="standard:asset_object" size="medium" class="header-icon"></lightning-icon>
+                <div class="header-text">
+                    <h2 class="header-heading">Asset Viewer</h2>
+                    <p class="context-subtitle" if:true={accountName}>
+                        Assets for <span class="context-badge">{accountName}</span>
+                    </p>
+                </div>
+                <div class="header-stats" if:true={hasData}>
+                    <span class="stat-pill">{totalAssets} Asset{assetPluralSuffix}</span>
+                    <span class="stat-pill stat-pill-secondary">{totalPurchasers} Purchaser{purchaserPluralSuffix}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ CONTROLS BAR ═══ -->
+        <div class="controls-bar" if:true={hasData}>
+            <div class="search-section">
+                <lightning-input
+                    type="search"
+                    placeholder="Search assets..."
+                    value={searchTerm}
+                    onchange={handleSearchChange}
+                    class="search-input"
+                    variant="label-hidden"
+                    label="Search assets">
+                </lightning-input>
+            </div>
+            <div class="filter-section" if:true={hasProductFilters}>
+                <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
+                <span class="filter-label">Product</span>
+                <div class="pill-filter-container">
+                    <template for:each={productFilterOptions} for:item="opt">
+                        <button key={opt.value} class={opt.pillClass} data-value={opt.value} data-type="product" onclick={handleFilterToggle}>{opt.label}</button>
+                    </template>
+                </div>
+            </div>
+            <div class="filter-section" if:true={hasStatusFilters}>
+                <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
+                <span class="filter-label">Status</span>
+                <div class="pill-filter-container">
+                    <template for:each={statusFilterOptions} for:item="opt">
+                        <button key={opt.value} class={opt.pillClass} data-value={opt.value} data-type="status" onclick={handleFilterToggle}>{opt.label}</button>
+                    </template>
+                </div>
+            </div>
+            <button if:true={hasActiveFilters} class="clear-filters-btn" onclick={handleClearFilters}>
+                <lightning-icon icon-name="utility:close" size="xx-small" class="clear-icon"></lightning-icon>
+                Clear Filters
+            </button>
+        </div>
+
+        <!-- ═══ LOADING ═══ -->
+        <div if:true={isLoading} class="loading-container">
+            <lightning-spinner alternative-text="Loading assets..." size="medium"></lightning-spinner>
+            <p class="loading-text">Loading assets...</p>
+        </div>
+
+        <!-- ═══ ERROR ═══ -->
+        <template if:true={error}>
+            <div class="error-container">
+                <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                <p class="error-text">{errorMessage}</p>
+            </div>
+        </template>
+
+        <!-- ═══ EMPTY STATE ═══ -->
+        <div if:true={showEmptyState} class="empty-state">
+            <div class="empty-illustration">
+                <lightning-icon icon-name="standard:asset_object" size="large" class="empty-icon"></lightning-icon>
+            </div>
+            <h3 class="empty-heading">No Assets Found</h3>
+            <p class="empty-description">This account doesn't have any assets yet.</p>
+        </div>
+
+        <!-- ═══ NO RESULTS (filtered) ═══ -->
+        <div if:true={showNoResults} class="empty-state">
+            <div class="empty-illustration">
+                <lightning-icon icon-name="utility:search" size="large" class="empty-icon"></lightning-icon>
+            </div>
+            <h3 class="empty-heading">No Matching Assets</h3>
+            <p class="empty-description">Try adjusting your search or filters.</p>
+        </div>
+
+        <!-- ═══ SUMMARY BAR ═══ -->
+        <div if:true={showSummaryBar} class="summary-bar">
+            <template for:each={summarySegments} for:item="seg">
+                <div key={seg.purchaserId} class="summary-segment" style={seg.segmentStyle} title={seg.tooltip}></div>
+            </template>
+        </div>
+        <div if:true={showSummaryBar} class="summary-legend">
+            <template for:each={summarySegments} for:item="seg">
+                <div key={seg.purchaserId} class="legend-item">
+                    <span class="legend-dot" style={seg.dotStyle}></span>
+                    <span class="legend-label">{seg.label}</span>
+                    <span class="legend-count">{seg.count}</span>
+                </div>
+            </template>
+        </div>
+
+        <!-- ═══ PURCHASER GROUPS ═══ -->
+        <div if:true={showGroups} class="groups-container">
+            <template for:each={displayGroups} for:item="group">
+                <div key={group.purchaserId} class="purchaser-group">
+                    <!-- Group Header -->
+                    <div class="group-header" data-purchaser-id={group.purchaserId} onclick={handleToggleGroup}>
+                        <div class="group-header-left">
+                            <div class="group-color-bar" style={group.colorBarStyle}></div>
+                            <lightning-icon icon-name={group.expandIcon} size="xx-small" class="group-chevron"></lightning-icon>
+                            <div class="group-icon-wrap" style={group.iconBgStyle}>
+                                <lightning-icon icon-name={group.icon} size="x-small" class="group-icon"></lightning-icon>
+                            </div>
+                            <div class="group-title-block">
+                                <span class="group-name">{group.purchaserName}</span>
+                                <template if:true={group.isSelf}>
+                                    <span class="self-badge">Self</span>
+                                </template>
+                                <template if:true={group.recordTypeBadge}>
+                                    <span class="rt-badge" style={group.rtBadgeStyle}>{group.recordTypeBadge}</span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="group-header-right">
+                            <span class="group-count-badge" style={group.countBadgeStyle}>{group.assetCount} asset{group.pluralSuffix}</span>
+                            <a class="group-link" href={group.purchaserUrl} onclick={handleNavigate} data-url={group.purchaserUrl} title="View Account">
+                                <lightning-icon icon-name="utility:new_window" size="xx-small" class="link-icon"></lightning-icon>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Asset Cards Grid -->
+                    <template if:true={group.isExpanded}>
+                        <div class="asset-cards-grid">
+                            <template for:each={group.filteredAssets} for:item="asset">
+                                <div key={asset.id} class="asset-card" data-url={asset.assetUrl} onclick={handleNavigate}>
+                                    <div class="asset-card-stripe" style={group.stripeStyle}></div>
+                                    <div class="asset-card-body">
+                                        <div class="asset-card-header">
+                                            <span class="asset-name" title={asset.name}>{asset.name}</span>
+                                            <span class={asset.statusClass}>{asset.status}</span>
+                                        </div>
+                                        <div class="asset-card-details">
+                                            <template if:true={asset.productName}>
+                                                <div class="asset-detail">
+                                                    <lightning-icon icon-name="standard:product" size="xx-small" class="detail-icon"></lightning-icon>
+                                                    <span class="detail-text">{asset.productName}</span>
+                                                </div>
+                                            </template>
+                                            <template if:true={asset.installDateFormatted}>
+                                                <div class="asset-detail">
+                                                    <lightning-icon icon-name="utility:date_input" size="xx-small" class="detail-icon"></lightning-icon>
+                                                    <span class="detail-text">{asset.installDateFormatted}</span>
+                                                </div>
+                                            </template>
+                                            <template if:true={asset.hasQuantity}>
+                                                <div class="asset-detail">
+                                                    <lightning-icon icon-name="utility:package" size="xx-small" class="detail-icon"></lightning-icon>
+                                                    <span class="detail-text">Qty: {asset.quantity}</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

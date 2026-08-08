@@ -1,0 +1,190 @@
+<template>
+    <div class="coverage-container">
+        <!-- ═══ HEADER ═══ -->
+        <div class="header-section">
+            <div class="header-title-row">
+                <lightning-icon icon-name="standard:opportunity" size="medium" class="header-icon"></lightning-icon>
+                <div class="header-text">
+                    <h2 class="header-heading">Product Coverage</h2>
+                    <p class="context-subtitle" if:true={accountName}>
+                        <span class="context-badge">{opportunityName}</span>
+                        <span class="context-arrow">→</span>
+                        <span class="context-badge">{accountName}</span>
+                    </p>
+                </div>
+                <div class="header-stats" if:true={hasData}>
+                    <span class="stat-pill">{totalProducts} Product{productPluralSuffix}</span>
+                    <span class="stat-pill stat-pill-secondary">{totalAccounts} Account{accountPluralSuffix}</span>
+                    <span class="stat-pill stat-pill-owner" if:true={hasOwners}>{totalAccountsWithOwnership} Owner{ownerPluralSuffix}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ CONTROLS BAR ═══ -->
+        <div class="controls-bar" if:true={hasData}>
+            <div class="search-section">
+                <lightning-input
+                    type="search"
+                    placeholder="Search accounts..."
+                    value={searchTerm}
+                    onchange={handleSearchChange}
+                    class="search-input"
+                    variant="label-hidden"
+                    label="Search accounts">
+                </lightning-input>
+            </div>
+            <div class="filter-section" if:true={hasProductFilters}>
+                <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
+                <span class="filter-label">Product</span>
+                <div class="pill-filter-container">
+                    <template for:each={productFilterOptions} for:item="opt">
+                        <button key={opt.value} class={opt.pillClass} data-value={opt.value} data-type="product" onclick={handleFilterToggle}>{opt.label}</button>
+                    </template>
+                </div>
+            </div>
+            <div class="filter-section">
+                <lightning-icon icon-name="utility:filterList" size="xx-small" class="filter-icon"></lightning-icon>
+                <span class="filter-label">Show</span>
+                <div class="pill-filter-container">
+                    <button class={ownersOnlyPillClass} data-type="owners" onclick={handleOwnersOnlyToggle}>Owners Only</button>
+                </div>
+            </div>
+            <button if:true={hasActiveFilters} class="clear-filters-btn" onclick={handleClearFilters}>
+                <lightning-icon icon-name="utility:close" size="xx-small" class="clear-icon"></lightning-icon>
+                Clear Filters
+            </button>
+        </div>
+
+        <!-- ═══ LOADING ═══ -->
+        <div if:true={isLoading} class="loading-container">
+            <lightning-spinner alternative-text="Loading coverage..." size="medium"></lightning-spinner>
+            <p class="loading-text">Analyzing product coverage...</p>
+        </div>
+
+        <!-- ═══ ERROR ═══ -->
+        <template if:true={error}>
+            <div class="error-container">
+                <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                <p class="error-text">{errorMessage}</p>
+            </div>
+        </template>
+
+        <!-- ═══ EMPTY STATE (no line items) ═══ -->
+        <div if:true={showEmptyState} class="empty-state">
+            <div class="empty-illustration">
+                <lightning-icon icon-name="standard:opportunity" size="large" class="empty-icon"></lightning-icon>
+            </div>
+            <h3 class="empty-heading">No Products on Opportunity</h3>
+            <p class="empty-description">Add products to this opportunity to see coverage across the account hierarchy.</p>
+        </div>
+
+        <!-- ═══ NO RESULTS (filtered) ═══ -->
+        <div if:true={showNoResults} class="empty-state">
+            <div class="empty-illustration">
+                <lightning-icon icon-name="utility:search" size="large" class="empty-icon"></lightning-icon>
+            </div>
+            <h3 class="empty-heading">No Matching Accounts</h3>
+            <p class="empty-description">Try adjusting your search or filters.</p>
+        </div>
+
+        <!-- ═══ PRODUCT COVERAGE SUMMARY ═══ -->
+        <div if:true={hasData} class="coverage-summary">
+            <div class="summary-heading-row">
+                <h3 class="summary-heading">Product Ownership Across Hierarchy</h3>
+                <span class="summary-hint">Accounts below {accountName} that already own these products</span>
+            </div>
+            <div class="product-coverage-list">
+                <template for:each={productCoverageItems} for:item="item">
+                    <div key={item.productId} class="product-coverage-item">
+                        <div class="product-coverage-header">
+                            <span class="product-name" title={item.productName}>{item.productName}</span>
+                            <span class="product-stats">
+                                <span class="owner-count-badge" style={item.ownerBadgeStyle}>{item.ownerCount} owner{item.ownerPluralSuffix}</span>
+                                <span class="asset-count-text">{item.assetCount} asset{item.assetPluralSuffix}</span>
+                            </span>
+                        </div>
+                        <div class="coverage-bar">
+                            <div class="coverage-bar-fill" style={item.barStyle}></div>
+                        </div>
+                        <div class="coverage-bar-label">
+                            <span>{item.ownerCount} of {totalAccounts} accounts ({item.percentText})</span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- ═══ HIERARCHY LEVELS ═══ -->
+        <div if:true={showLevels} class="levels-container">
+            <template for:each={levelGroups} for:item="level">
+                <div key={level.depth} class="level-section">
+                    <div class="level-header">
+                        <div class="level-title-block">
+                            <span class="level-badge" style={level.badgeStyle}>{level.label}</span>
+                            <span class="level-count">{level.accounts.length} account{level.pluralSuffix}</span>
+                        </div>
+                        <button class="level-toggle" data-depth={level.depth} onclick={handleToggleLevel}>
+                            <lightning-icon icon-name={level.expandIcon} size="xx-small" class="level-chevron"></lightning-icon>
+                            <span>{level.toggleLabel}</span>
+                        </button>
+                    </div>
+
+                    <template if:true={level.isExpanded}>
+                        <div class="account-cards-grid">
+                            <template for:each={level.accounts} for:item="acc">
+                                <div key={acc.id} class="account-card" data-url={acc.accountUrl} onclick={handleNavigate}>
+                                    <div class="account-card-stripe" style={acc.stripeStyle}></div>
+                                    <div class="account-card-body">
+                                        <div class="account-card-header">
+                                            <div class="account-icon-wrap" style={acc.iconBgStyle}>
+                                                <lightning-icon icon-name={acc.icon} size="x-small" class="account-icon"></lightning-icon>
+                                            </div>
+                                            <div class="account-title-block">
+                                                <span class="account-name" title={acc.name}>{acc.name}</span>
+                                                <div class="account-meta">
+                                                    <template if:true={acc.isSelf}>
+                                                        <span class="self-badge">Self</span>
+                                                    </template>
+                                                    <span class="rt-badge" style={acc.rtBadgeStyle}>{acc.recordTypeLabel}</span>
+                                                    <template if:true={acc.parentName}>
+                                                        <span class="parent-label">via {acc.parentName}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <a class="account-link" href={acc.accountUrl} onclick={handleNavigate} data-url={acc.accountUrl} title="View Account">
+                                                <lightning-icon icon-name="utility:new_window" size="xx-small" class="link-icon"></lightning-icon>
+                                            </a>
+                                        </div>
+
+                                        <template if:true={acc.hasOwnedAssets}>
+                                            <div class="owned-assets-list">
+                                                <template for:each={acc.ownedAssets} for:item="asset">
+                                                    <div key={asset.id} class="owned-asset-row" data-url={asset.assetUrl} onclick={handleNavigate}>
+                                                        <span class="asset-product-name" title={asset.productName}>{asset.productName}</span>
+                                                        <span class={asset.statusClass}>{asset.status}</span>
+                                                        <template if:true={asset.hasQuantity}>
+                                                            <span class="asset-qty">Qty: {asset.quantity}</span>
+                                                        </template>
+                                                        <template if:true={asset.installDateFormatted}>
+                                                            <span class="asset-date">{asset.installDateFormatted}</span>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template if:false={acc.hasOwnedAssets}>
+                                            <div class="no-assets-label">
+                                                <lightning-icon icon-name="utility:info" size="xx-small" class="no-assets-icon"></lightning-icon>
+                                                <span>No matching products owned</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

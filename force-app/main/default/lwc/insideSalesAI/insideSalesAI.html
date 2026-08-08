@@ -1,0 +1,104 @@
+<template>
+    <article class="slds-card ai-card">
+        <!-- ================= HEADER (click to collapse/expand) ================= -->
+        <div class="header-band" onclick={handleToggleCollapse} role="button" tabindex="0"
+             onkeydown={handleHeaderKeyDown} title={toggleLabel}>
+            <div class="header-inner">
+                <div class="header-icon-tile">
+                    <lightning-icon icon-name="utility:ai" size="small"></lightning-icon>
+                </div>
+                <div class="header-text">
+                    <h2 class="header-title">Raptor AI Assistant</h2>
+                    <p class="header-subtitle">Inside Sales Intelligence — <span class="header-stamp">Protect every child, every school, every day.</span></p>
+                </div>
+                <div class="header-model" if:true={modelReady}>
+                    <lightning-icon icon-name="utility:connected_apps" size="xx-small"></lightning-icon>
+                    <span class="model-name">{modelName}</span>
+                </div>
+                <div class="header-warn" if:false={modelReady}>
+                    <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                    <span>Set API key</span>
+                </div>
+                <div class="header-toggle">
+                    <lightning-icon icon-name={toggleIcon} size="xx-small"></lightning-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= BODY (collapsible) ================= -->
+        <div class="ai-body" if:false={isCollapsed}>
+        <!-- ================= ORB ================= -->
+        <div class="orb-section">
+            <div class="orb-container" data-state={orbState}>
+                <canvas class="orb-canvas" data-element="orbCanvas"></canvas>
+                <div class="orb-core" data-element="orbCore"></div>
+                <div class="orb-wave" data-element="orbWave" if:true={isSpeaking}></div>
+                <div class="orb-status">{orbStatusText}</div>
+            </div>
+        </div>
+
+        <!-- ================= QUICK ACTIONS ================= -->
+        <div class="quick-actions">
+            <button class="qa-btn" onclick={handleWhitespaceClick} disabled={isThinking}>
+                <lightning-icon icon-name="utility:chart" size="xx-small"></lightning-icon>
+                <span>Whitespace</span>
+            </button>
+            <button class="qa-btn" onclick={handleAssetsClick} disabled={isThinking}>
+                <lightning-icon icon-name="utility:asset_object" size="xx-small"></lightning-icon>
+                <span>Asset Status</span>
+            </button>
+            <button class="qa-btn" onclick={handleNearbyClick} disabled={isThinking}>
+                <lightning-icon icon-name="utility:location" size="xx-small"></lightning-icon>
+                <span>Nearby Schools</span>
+            </button>
+        </div>
+
+        <!-- ================= CHAT THREAD ================= -->
+        <div class="chat-section">
+            <div class="chat-thread" data-element="chatThread">
+                <template if:true={welcomeShowing}>
+                    <div class="welcome">
+                        <div class="orb-mini" data-state={orbState}></div>
+                        <p class="welcome-text">I'm Raptor AI. Ask me about whitespace opportunities, asset status, or nearby schools that could be expansion targets.</p>
+                    </div>
+                </template>
+
+                <template for:each={messages} for:item="msg">
+                    <div key={msg.id}
+                         class={msg.rowClass}>
+                        <div class="msg-bubble">
+                            <p class="msg-text">{msg.text}</p>
+                        </div>
+                    </div>
+                </template>
+
+                <template if:true={isThinking}>
+                    <div class="msg-row msg-ai">
+                        <div class="msg-bubble typing">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ================= INPUT ================= -->
+            <div class="input-row">
+                <textarea
+                    class="input-box"
+                    data-element="inputBox"
+                    placeholder="Ask Raptor AI about this account…"
+                    value={draft}
+                    oninput={handleInput}
+                    onkeydown={handleKeyDown}
+                    rows="2"
+                ></textarea>
+                <button class="send-btn" onclick={handleSend} disabled={isThinking}>
+                    <lightning-icon icon-name="utility:send" size="x-small"></lightning-icon>
+                </button>
+            </div>
+        </div>
+        </div>
+    </article>
+</template>

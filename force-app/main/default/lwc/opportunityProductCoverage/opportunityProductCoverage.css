@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Asset Viewer — Raptor Technologies Brand Styles
+   Opportunity Product Coverage — Raptor Technologies Brand Styles
    Palette: Raptor Orange (#faa21b), Raptor Blue (#4e83d1),
    Dark Blue (#3b5c82), Navy (#233c5b), Teal (#33a78f),
    Light Blue (#d2e8ee), Grays (#e4e4e4 / #707071 / #35353a)
@@ -25,7 +25,7 @@
     color: var(--raptor-dark);
 }
 
-.asset-container {
+.coverage-container {
     background: var(--lwc-colorBackground, #ffffff);
     border: 1px solid var(--raptor-gray-light);
     border-radius: 12px;
@@ -69,16 +69,6 @@
     z-index: 1;
 }
 
-.header-logo {
-    height: 30px;
-    width: auto;
-    flex-shrink: 0;
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 0.2rem 0.45rem;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
 .header-icon {
     --sds-c-icon-color-background: rgba(255, 255, 255, 0.15);
     --sds-c-icon-color-foreground: #ffffff;
@@ -104,6 +94,10 @@
     color: rgba(255, 255, 255, 0.85);
     font-size: 0.72rem;
     margin: 2px 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .context-badge {
@@ -117,6 +111,15 @@
     letter-spacing: 0.03em;
     backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.15);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.context-arrow {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.7rem;
 }
 
 .header-stats {
@@ -141,6 +144,11 @@
 .stat-pill-secondary {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stat-pill-owner {
+    background: rgba(250, 162, 27, 0.25);
+    border: 1px solid rgba(250, 162, 27, 0.4);
 }
 
 /* ─── Controls Bar ────────────────────────────────────────────────────── */
@@ -310,82 +318,115 @@
     font-size: 0.85rem;
     color: var(--raptor-gray);
     margin: 0;
+    text-align: center;
+    max-width: 360px;
 }
 
-/* ─── Summary Bar ─────────────────────────────────────────────────────── */
-.summary-bar {
+/* ─── Product Coverage Summary ────────────────────────────────────────── */
+.coverage-summary {
+    padding: 16px 20px 8px;
+    border-bottom: 1px solid var(--raptor-gray-light);
+}
+
+.summary-heading-row {
     display: flex;
-    height: 8px;
-    margin: 0 20px;
-    margin-top: 16px;
-    border-radius: 100px;
-    overflow: hidden;
-    background: var(--raptor-gray-light);
-}
-
-.summary-segment {
-    transition: width 0.4s ease;
-    min-width: 4px;
-}
-
-.summary-segment:first-child {
-    border-radius: 100px 0 0 100px;
-}
-
-.summary-segment:last-child {
-    border-radius: 0 100px 100px 0;
-}
-
-.summary-segment:only-child {
-    border-radius: 100px;
-}
-
-.summary-legend {
-    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
     flex-wrap: wrap;
-    gap: 12px 20px;
-    padding: 10px 20px 4px;
+    margin-bottom: 12px;
 }
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
+.summary-heading {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--raptor-navy);
+    margin: 0;
+}
+
+.summary-hint {
+    font-size: 0.72rem;
     color: var(--raptor-gray);
 }
 
-.legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.legend-label {
-    font-weight: 500;
-    color: var(--raptor-dark);
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.legend-count {
-    font-weight: 600;
-    color: var(--raptor-gray);
-}
-
-/* ─── Groups Container ────────────────────────────────────────────────── */
-.groups-container {
-    padding: 16px 20px 20px;
+.product-coverage-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-/* ─── Purchaser Group ─────────────────────────────────────────────────── */
-.purchaser-group {
+.product-coverage-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.product-coverage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.product-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--raptor-dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.product-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.owner-count-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.asset-count-text {
+    font-size: 0.72rem;
+    color: var(--raptor-gray);
+}
+
+.coverage-bar {
+    height: 6px;
+    border-radius: 100px;
+    background: var(--raptor-gray-light);
+    overflow: hidden;
+}
+
+.coverage-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.4s ease;
+}
+
+.coverage-bar-label {
+    font-size: 0.68rem;
+    color: var(--raptor-gray);
+}
+
+/* ─── Hierarchy Levels ────────────────────────────────────────────────── */
+.levels-container {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.level-section {
     border: 1px solid var(--raptor-gray-light);
     border-radius: 10px;
     overflow: hidden;
@@ -393,50 +434,108 @@
     transition: box-shadow 0.2s ease;
 }
 
-.purchaser-group:hover {
+.level-section:hover {
     box-shadow: 0 2px 8px rgba(35, 60, 91, 0.08);
 }
 
-.group-header {
+.level-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    cursor: pointer;
-    user-select: none;
-    position: relative;
-    transition: background 0.15s ease;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
+    border-bottom: 1px solid var(--raptor-gray-light);
 }
 
-.group-header:hover {
-    background: #fafaf9;
-}
-
-.group-header-left {
+.level-title-block {
     display: flex;
     align-items: center;
+    gap: 10px;
+}
+
+.level-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.level-count {
+    font-size: 0.75rem;
+    color: var(--raptor-gray);
+}
+
+.level-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #d8dde6;
+    background: #ffffff;
+    color: var(--raptor-dark-blue);
+    transition: all 0.15s ease;
+}
+
+.level-toggle:hover {
+    background: #eaf1fa;
+    border-color: var(--raptor-blue);
+}
+
+.level-chevron {
+    --sds-c-icon-color-foreground-default: currentColor;
+}
+
+/* ─── Account Cards Grid ──────────────────────────────────────────────── */
+.account-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 12px;
-    min-width: 0;
-    flex: 1;
+    padding: 12px 16px 16px;
 }
 
-.group-color-bar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+/* ─── Account Card ────────────────────────────────────────────────────── */
+.account-card {
+    display: flex;
+    border: 1px solid var(--raptor-gray-light);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #ffffff;
+}
+
+.account-card:hover {
+    border-color: var(--raptor-blue);
+    box-shadow: 0 2px 8px rgba(78, 131, 209, 0.12);
+    transform: translateY(-1px);
+}
+
+.account-card-stripe {
     width: 4px;
-    border-radius: 4px 0 0 4px;
-}
-
-.group-chevron {
-    --sds-c-icon-color-foreground-default: var(--raptor-gray);
     flex-shrink: 0;
-    margin-left: 4px;
-    transition: transform 0.2s ease;
 }
 
-.group-icon-wrap {
+.account-card-body {
+    flex: 1;
+    padding: 12px 14px;
+    min-width: 0;
+}
+
+.account-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.account-icon-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -446,25 +545,32 @@
     flex-shrink: 0;
 }
 
-.group-icon {
+.account-icon {
     --sds-c-icon-color-foreground-default: var(--raptor-dark);
 }
 
-.group-title-block {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.account-title-block {
+    flex: 1;
     min-width: 0;
-    flex-wrap: wrap;
 }
 
-.group-name {
-    font-size: 0.95rem;
+.account-name {
+    font-size: 0.88rem;
     font-weight: 600;
     color: var(--raptor-navy);
-    white-space: nowrap;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.account-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
 }
 
 .self-badge {
@@ -491,23 +597,13 @@
     letter-spacing: 0.03em;
 }
 
-.group-header-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
+.parent-label {
+    font-size: 0.68rem;
+    color: var(--raptor-gray);
+    font-style: italic;
 }
 
-.group-count-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border-radius: 100px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.group-link {
+.account-link {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -517,9 +613,10 @@
     color: var(--raptor-gray);
     transition: all 0.15s ease;
     text-decoration: none;
+    flex-shrink: 0;
 }
 
-.group-link:hover {
+.account-link:hover {
     background: #eaf1fa;
     color: var(--raptor-blue);
 }
@@ -528,72 +625,59 @@
     --sds-c-icon-color-foreground-default: currentColor;
 }
 
-/* ─── Asset Cards Grid ────────────────────────────────────────────────── */
-.asset-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-    padding: 4px 16px 16px;
-    border-top: 1px solid var(--raptor-gray-light);
-}
-
-/* ─── Asset Card ──────────────────────────────────────────────────────── */
-.asset-card {
+/* ─── Owned Assets ────────────────────────────────────────────────────── */
+.owned-assets-list {
     display: flex;
-    border: 1px solid var(--raptor-gray-light);
-    border-radius: 8px;
-    overflow: hidden;
+    flex-direction: column;
+    gap: 4px;
+    border-top: 1px solid var(--raptor-gray-light);
+    padding-top: 8px;
+}
+
+.owned-asset-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
     cursor: pointer;
-    transition: all 0.2s ease;
-    background: #ffffff;
 }
 
-.asset-card:hover {
-    border-color: var(--raptor-blue);
-    box-shadow: 0 2px 8px rgba(78, 131, 209, 0.12);
-    transform: translateY(-1px);
+.owned-asset-row:hover {
+    background: #f7f9fc;
 }
 
-.asset-card-stripe {
-    width: 4px;
+.asset-product-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--raptor-dark);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.asset-qty {
+    font-size: 0.7rem;
+    color: var(--raptor-gray);
     flex-shrink: 0;
 }
 
-.asset-card-body {
-    flex: 1;
-    padding: 12px 14px;
-    min-width: 0;
-}
-
-.asset-card-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.asset-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--raptor-navy);
-    line-height: 1.3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    flex: 1;
-    min-width: 0;
+.asset-date {
+    font-size: 0.68rem;
+    color: var(--raptor-gray);
+    flex-shrink: 0;
 }
 
 /* ─── Status Pills ────────────────────────────────────────────────────── */
 .status-pill {
     display: inline-flex;
     align-items: center;
-    padding: 2px 10px;
+    padding: 2px 8px;
     border-radius: 100px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -636,30 +720,21 @@
     border: 1px solid #d8d8d8;
 }
 
-/* ─── Asset Card Details ──────────────────────────────────────────────── */
-.asset-card-details {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.asset-detail {
+/* ─── No Assets Label ─────────────────────────────────────────────────── */
+.no-assets-label {
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 6px 4px;
+    font-size: 0.72rem;
+    color: var(--raptor-gray);
+    font-style: italic;
+    border-top: 1px solid var(--raptor-gray-light);
 }
 
-.detail-icon {
+.no-assets-icon {
     --sds-c-icon-color-foreground-default: var(--raptor-gray);
     flex-shrink: 0;
-}
-
-.detail-text {
-    font-size: 0.78rem;
-    color: var(--raptor-gray);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /* ─── Responsive ──────────────────────────────────────────────────────── */
@@ -682,11 +757,12 @@
         flex: 1 1 100%;
     }
 
-    .asset-cards-grid {
+    .account-cards-grid {
         grid-template-columns: 1fr;
     }
 
-    .summary-legend {
-        gap: 8px 14px;
+    .summary-heading-row {
+        flex-direction: column;
+        gap: 4px;
     }
 }

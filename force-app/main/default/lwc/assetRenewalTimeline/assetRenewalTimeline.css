@@ -1,0 +1,625 @@
+/* ============================
+   Asset Renewal Timeline — Modern/Sleek Styles
+   Gradient header, glassmorphic tooltip, mini-card nodes with
+   urgency glow shadows, pulse animation, month gridlines,
+   today marker, and reduced-motion support.
+   ============================ */
+
+:host {
+    display: block;
+}
+
+.timeline-card {
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+/* ================= GRADIENT HEADER BAND (compact, sleek) ================= */
+.header-band {
+    background: linear-gradient(120deg, #1e3a8a 0%, #2563eb 45%, #7c3aed 100%);
+    padding: 0.6rem 1rem;
+    color: #ffffff;
+}
+
+.header-band-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+/* Official Raptor Technologies logo */
+.header-logo {
+    height: 30px;
+    width: auto;
+    flex-shrink: 0;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 0.2rem 0.45rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.header-icon-tile {
+    width: 30px;
+    height: 30px;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+}
+
+.header-text {
+    flex: 1 1 auto;
+    min-width: 180px;
+}
+
+.header-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.2px;
+    line-height: 1.2;
+}
+
+.header-subtitle {
+    font-size: 0.72rem;
+    opacity: 0.85;
+    margin: 0.1rem 0 0;
+}
+
+/* Playful brand tagline accent */
+.header-stamp {
+    font-family: 'Caveat Brush', 'Comic Sans MS', cursive;
+    color: #faa21b;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+}
+
+/* ---- Summary chips ---- */
+.header-stats {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.stat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.8);
+}
+
+.stat-chip_linked {
+    color: #d1fae5;
+}
+
+/* ================= FILTERS ================= */
+.filters {
+    max-width: 720px;
+}
+
+/* ================= TIMELINE SCROLL ================= */
+.timeline-scroll {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.timeline {
+    position: relative;
+    min-width: 720px;
+    padding-top: 0.25rem;
+    padding-bottom: 1rem;
+}
+
+/* ================= MONTH AXIS ================= */
+.timeline-axis {
+    display: flex;
+    margin-bottom: 0.25rem;
+    position: relative;
+}
+
+.timeline-axis-month {
+    text-align: center;
+    font-weight: 500;
+    position: relative;
+}
+
+/* Dashed gridline behind each month boundary */
+.timeline-axis-month::after {
+    content: '';
+    position: absolute;
+    top: 1.4rem;
+    bottom: -3.2rem;
+    left: 0;
+    width: 1px;
+    background: repeating-linear-gradient(
+        to bottom,
+        #e5e7eb 0,
+        #e5e7eb 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    opacity: 0.6;
+}
+
+.axis-month-label {
+    font-size: 0.72rem;
+    color: #6b7280;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+/* ================= QUARTER MARKERS ================= */
+.timeline-quarters {
+    position: relative;
+    height: 0;
+    z-index: 1;
+}
+
+.timeline-quarter-marker {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+}
+
+.quarter-dot {
+    display: block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #c7d2fe;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px #c7d2fe;
+}
+
+/* ================= TODAY MARKER ================= */
+.today-marker {
+    position: absolute;
+    top: 1.6rem;
+    bottom: 0.5rem;
+    width: 2px;
+    background: linear-gradient(to bottom, #f59e0b, #fbbf24);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.today-tag {
+    position: absolute;
+    top: -0.4rem;
+    left: 0.4rem;
+    background: #f59e0b;
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ================= AXIS LINE ================= */
+.timeline-line {
+    position: relative;
+    height: 4px;
+    background: linear-gradient(90deg, #2563eb, #7c3aed, #2563eb);
+    background-size: 200% 100%;
+    animation: axisFlow 6s linear infinite;
+    border-radius: 2px;
+    margin: 0.25rem 0 0.75rem;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.35);
+}
+
+@keyframes axisFlow {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* ================= LANES ================= */
+.timeline-lanes {
+    position: relative;
+}
+
+.timeline-lane {
+    position: relative;
+    height: 84px;
+}
+
+/* ================= NODES (MINI-CARDS) ================= */
+.tl-node {
+    position: absolute;
+    top: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transform: translateX(-50%);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+    animation: tlFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    min-width: 120px;
+}
+
+.tl-node:hover,
+.tl-node_hover {
+    transform: translateX(-50%) translateY(-3px) scale(1.05);
+    z-index: 5;
+}
+
+/* ---- Mini-card body ---- */
+.tl-node-card {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.6rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    max-width: 150px;
+}
+
+.tl-node:hover .tl-node-card,
+.tl-node_hover .tl-node-card {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    border-color: #c7d2fe;
+}
+
+/* ---- Bubble (colored dot) ---- */
+.tl-node-bubble {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+    position: relative;
+}
+
+/* Urgency glow shadows */
+.tl-node_critical .tl-node-bubble {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 2px 8px rgba(239, 68, 68, 0.5);
+}
+.tl-node_warning .tl-node-bubble {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2), 0 2px 8px rgba(249, 115, 22, 0.5);
+}
+.tl-node_attention .tl-node-bubble {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2), 0 2px 8px rgba(245, 158, 11, 0.5);
+}
+.tl-node_future .tl-node-bubble {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(59, 130, 246, 0.5);
+}
+
+/* Linked / Renewal Created */
+.tl-node_linked .tl-node-bubble {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2), 0 2px 8px rgba(16, 185, 129, 0.5);
+}
+
+/* ---- Node info (name + date) ---- */
+.tl-node-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tl-node-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #111827;
+    max-width: 100px;
+    line-height: 1.2;
+}
+
+.tl-node-date {
+    font-size: 0.66rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* ---- Critical pulse ring ---- */
+.tl-node_critical .tl-node-bubble::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(239, 68, 68, 0.5);
+    animation: pulseRing 1.8s ease-out infinite;
+}
+
+@keyframes pulseRing {
+    0% { transform: scale(0.9); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ================= TOOLTIP (GLASSMORPHIC) ================= */
+.tl-tooltip {
+    position: absolute;
+    top: -10px;
+    left: 55%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 0.6rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    padding: 0.7rem 0.9rem;
+    z-index: 20;
+    width: 230px;
+    pointer-events: none;
+    opacity: 0;
+    animation: tlTooltipIn 0.18s ease forwards;
+}
+
+.tl-tooltip-title {
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.tl-tooltip-row {
+    font-size: 0.75rem;
+    color: #374151;
+    margin-bottom: 0.2rem;
+}
+
+.tl-tooltip-row span {
+    display: inline-block;
+    min-width: 52px;
+    color: #6b7280;
+}
+
+.tl-tooltip-badge {
+    display: inline-block;
+    margin-top: 0.45rem;
+    padding: 0.18rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.tl-tooltip-badge_critical { background: #dc2626; }
+.tl-tooltip-badge_warning { background: #ea580c; }
+.tl-tooltip-badge_attention { background: #d97706; }
+.tl-tooltip-badge_ok { background: #059669; }
+
+/* ================= ANIMATIONS ================= */
+@keyframes tlFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes tlTooltipIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* ================= POPOUT ACTION MENU ================= */
+.tl-menu {
+    position: absolute;
+    top: 64px;
+    z-index: 30;
+    width: 220px;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(10px);
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(99, 102, 241, 0.06);
+    padding: 0.4rem;
+    animation: tlMenuIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tl-menu::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: var(--arrow-left, 50%);
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border-left: 1px solid #e5e7eb;
+    border-top: 1px solid #e5e7eb;
+    border-radius: 2px;
+}
+
+.tl-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.55rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.tl-menu-item:hover {
+    background: linear-gradient(90deg, #eff6ff, #f5f3ff);
+}
+
+.tl-menu-icon {
+    flex-shrink: 0;
+    color: #2563eb;
+}
+
+.tl-menu-item-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tl-menu-item-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.tl-menu-item-sub {
+    font-size: 0.68rem;
+    color: #6b7280;
+    margin-top: 1px;
+}
+
+.tl-menu-sep {
+    height: 1px;
+    background: #f3f4f6;
+    margin: 0.25rem 0.4rem;
+}
+
+@keyframes tlMenuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ================= BATCH SELECTION STATE ================= */
+/* Selected node: bright ring + lift so the user can see the grouped set */
+.tl-node_selected .tl-node-card {
+    border-color: #4f46e5;
+    box-shadow:
+        0 0 0 3px rgba(79, 70, 229, 0.22),
+        0 10px 24px rgba(79, 70, 229, 0.2);
+}
+
+.tl-node_selected .tl-node-bubble {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 2px 10px rgba(99, 102, 241, 0.5);
+}
+
+/* ================= FLOATING BATCH ACTION BAR ================= */
+.batch-bar {
+    position: sticky;
+    bottom: 0.75rem;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(120deg, #1e3a8a, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 12px 32px rgba(30, 58, 138, 0.35);
+    animation: tlMenuIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.batch-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.batch-count {
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.batch-names {
+    font-size: 0.78rem;
+    opacity: 0.9;
+    max-width: 420px;
+}
+
+.batch-target {
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #dbeafe;
+}
+
+.batch-bar-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ================= REDUCED MOTION ================= */
+@media (prefers-reduced-motion: reduce) {
+    .tl-node,
+    .tl-node-bubble::after,
+    .timeline-line {
+        animation: none !important;
+    }
+    .tl-node:hover,
+    .tl-node_hover {
+        transform: translateX(-50%);
+    }
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+    .header-stats {
+        margin-left: 0;
+        width: 100%;
+    }
+    .header-band-inner {
+        gap: 0.6rem;
+    }
+}

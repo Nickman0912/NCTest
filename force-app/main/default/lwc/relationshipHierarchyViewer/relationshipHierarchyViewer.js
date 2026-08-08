@@ -1,5 +1,6 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import { loadStyle } from 'lightning/platformResourceLoader';
 import getHierarchyData from '@salesforce/apex/RelationshipHierarchyController.getHierarchyData';
 import getChildSchools from '@salesforce/apex/RelationshipHierarchyController.getChildSchools';
 
@@ -17,27 +18,42 @@ const LABEL_MAP = {
     School: 'School'
 };
 
+// Raptor Technologies brand palette mapped to entity record types.
 const COLOR_MAP = {
-    JPA: { bg: '#7c3aed', light: '#ede9fe', border: '#7c3aed', text: '#5b21b6' },
-    State_Entity: { bg: '#059669', light: '#ecfdf5', border: '#059669', text: '#065f46' },
-    District: { bg: '#0176d3', light: '#eff6ff', border: '#0176d3', text: '#014486' },
-    School: { bg: '#0891b2', light: '#ecfeff', border: '#0891b2', text: '#155e75' }
+    JPA: { bg: '#3b5c82', light: '#e8eef5', border: '#3b5c82', text: '#283f58' },       // Raptor Dark Blue
+    State_Entity: { bg: '#33a78f', light: '#e6f5f2', border: '#33a78f', text: '#1f6b5c' }, // Raptor Teal
+    District: { bg: '#4e83d1', light: '#eaf1fa', border: '#4e83d1', text: '#2a538f' },   // Raptor Blue
+    School: { bg: '#faa21b', light: '#fef3e0', border: '#faa21b', text: '#8a5a06' }      // Raptor Orange
 };
 
-// Distinct color palette for district-grouped schools
+// Distinct brand-tinted palette for district-grouped schools
 const DISTRICT_COLORS = [
-    { bg: '#3b82f6', light: '#eff6ff', border: '#93c5fd', text: '#1e40af', accent: '#3b82f6' },
-    { bg: '#8b5cf6', light: '#f5f3ff', border: '#c4b5fd', text: '#5b21b6', accent: '#8b5cf6' },
-    { bg: '#06b6d4', light: '#ecfeff', border: '#67e8f9', text: '#155e75', accent: '#06b6d4' },
-    { bg: '#f59e0b', light: '#fffbeb', border: '#fcd34d', text: '#92400e', accent: '#f59e0b' },
-    { bg: '#10b981', light: '#ecfdf5', border: '#6ee7b7', text: '#065f46', accent: '#10b981' },
-    { bg: '#ef4444', light: '#fef2f2', border: '#fca5a5', text: '#991b1b', accent: '#ef4444' },
-    { bg: '#ec4899', light: '#fdf2f8', border: '#f9a8d4', text: '#9d174d', accent: '#ec4899' },
-    { bg: '#6366f1', light: '#eef2ff', border: '#a5b4fc', text: '#3730a3', accent: '#6366f1' }
+    { bg: '#4e83d1', light: '#eaf1fa', border: '#b8cfe9', text: '#2a538f', accent: '#4e83d1' },
+    { bg: '#faa21b', light: '#fef3e0', border: '#fad79a', text: '#8a5a06', accent: '#faa21b' },
+    { bg: '#33a78f', light: '#e6f5f2', border: '#9dd9cb', text: '#1f6b5c', accent: '#33a78f' },
+    { bg: '#3b5c82', light: '#e8eef5', border: '#aec0d4', text: '#283f58', accent: '#3b5c82' },
+    { bg: '#c14f02', light: '#fbe9e0', border: '#e8a989', text: '#7c3201', accent: '#c14f02' },
+    { bg: '#707071', light: '#eeeeee', border: '#c0c0c1', text: '#474749', accent: '#707071' },
+    { bg: '#d2e8ee', light: '#f2fafc', border: '#a8d6df', text: '#23606b', accent: '#d2e8ee' },
+    { bg: '#233c5b', light: '#e4eaf2', border: '#9fb3cc', text: '#16283d', accent: '#233c5b' }
 ];
 
 export default class RelationshipHierarchyViewer extends NavigationMixin(LightningElement) {
     @api recordId;
+
+    /**
+     * Loads the brand web fonts (Source Sans Pro + Caveat Brush) from Google
+     * Fonts. Wrapped in .catch() so a missing CSP Trusted Site entry fails
+     * silently — the component still renders with the system fallback stack.
+     */
+    connectedCallback() {
+        loadStyle(
+            this,
+            'https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Source+Sans+Pro:wght@300;400;600;700&display=swap'
+        ).catch(() => {
+            // Brand fonts unavailable — system stack fallback is fine.
+        });
+    }
 
     @track parentEntities = [];
     @track childEntities = [];

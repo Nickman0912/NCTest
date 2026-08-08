@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>GeocodingService</members>
+        <members>GeocodingServiceTest</members>
+        <members>InsideSalesAIController</members>
+        <members>InsideSalesAIControllerTest</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>Geocoding_Configuration__mdt</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Account.Latitude__c</members>
+        <members>Account.Longitude__c</members>
+        <members>Account.Geocoded_On__c</members>
+        <members>Account.Geocode_Status__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Geocoding_Configuration.Default</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
+        <members>GoogleMaps</members>
+        <name>RemoteSiteSetting</name>
+    </types>
+    <types>
+        <members>insideSalesAI</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <version>65.0</version>
+</Package>

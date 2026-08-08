@@ -1,38 +1,53 @@
 import { LightningElement, api, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import { loadStyle } from 'lightning/platformResourceLoader';
 import getAssetsForAccount from '@salesforce/apex/AssetViewerController.getAssetsForAccount';
 
-// Color palette for purchaser groups
+// Raptor Technologies brand palette for purchaser groups
 const GROUP_COLORS = [
-    '#0176d3', // Salesforce blue
-    '#06a59a', // Teal
-    '#e3730c', // Orange
-    '#9050e9', // Purple
-    '#ea001e', // Red
-    '#2e844a', // Green
-    '#d83a00', // Burnt orange
-    '#3296ed', // Light blue
-    '#f59e0b', // Amber
-    '#7c3aed', // Violet
+    '#4e83d1', // Raptor Blue
+    '#33a78f', // Raptor Teal
+    '#faa21b', // Raptor Orange
+    '#3b5c82', // Raptor Dark Blue
+    '#c14f02', // Raptor Dark Orange
+    '#233c5b', // Raptor Navy
+    '#707071', // Raptor Gray
+    '#d2e8ee', // Raptor Light Blue
+    '#faa21b', // Raptor Orange (repeat for variety)
+    '#4e83d1', // Raptor Blue
 ];
 
 const RECORD_TYPE_CONFIG = {
-    JPA:          { label: 'JPA',          color: '#9050e9', icon: 'standard:account' },
-    State_Entity: { label: 'State Entity', color: '#0176d3', icon: 'standard:account' },
-    District:     { label: 'District',     color: '#06a59a', icon: 'standard:account' },
-    School:       { label: 'School',       color: '#e3730c', icon: 'standard:account' },
+    JPA:          { label: 'JPA',          color: '#3b5c82', icon: 'standard:account' },
+    State_Entity: { label: 'State Entity', color: '#33a78f', icon: 'standard:account' },
+    District:     { label: 'District',     color: '#4e83d1', icon: 'standard:account' },
+    School:       { label: 'School',       color: '#faa21b', icon: 'standard:account' },
 };
 
 const STATUS_COLORS = {
-    Purchased:  { bg: '#eaf5fe', color: '#0176d3', border: '#b9d6f3' },
-    Shipped:    { bg: '#fef3e0', color: '#e3730c', border: '#f9c97b' },
-    Installed:  { bg: '#e6f9f0', color: '#2e844a', border: '#91dbb6' },
-    Registered: { bg: '#f3ebff', color: '#9050e9', border: '#c8a9f1' },
-    Obsolete:   { bg: '#fef1f1', color: '#ea001e', border: '#f5a3a3' },
+    Purchased:  { bg: '#eaf1fa', color: '#4e83d1', border: '#b8cfe9' },
+    Shipped:    { bg: '#fef3e0', color: '#c14f02', border: '#fad79a' },
+    Installed:  { bg: '#e6f5f2', color: '#1f6b5c', border: '#9dd9cb' },
+    Registered: { bg: '#e8eef5', color: '#3b5c82', border: '#aec0d4' },
+    Obsolete:   { bg: '#fbe9e0', color: '#c14f02', border: '#e8a989' },
 };
 
 export default class AssetViewer extends NavigationMixin(LightningElement) {
     @api recordId;
+
+    /**
+     * Loads the brand web fonts (Source Sans Pro + Caveat Brush) from Google
+     * Fonts. Wrapped in .catch() so a missing CSP Trusted Site entry fails
+     * silently — the component still renders with the system fallback stack.
+     */
+    connectedCallback() {
+        loadStyle(
+            this,
+            'https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Source+Sans+Pro:wght@300;400;600;700&display=swap'
+        ).catch(() => {
+            // Brand fonts unavailable — system stack fallback is fine.
+        });
+    }
 
     rawResult;
     error;

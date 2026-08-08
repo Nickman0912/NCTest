@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>API_Key__c</field>
+        <value xsi:type="xsd:string">YOUR_OPENROUTER_API_KEY</value>
+    </values>
+    <values>
+        <field>Model__c</field>
+        <value xsi:type="xsd:string">anthropic/claude-3.5-sonnet</value>
+    </values>
+    <values>
+        <field>Endpoint__c</field>
+        <value xsi:type="xsd:string">https://openrouter.ai/api/v1/chat/completions</value>
+    </values>
+    <values>
+        <field>Max_Tokens__c</field>
+        <value xsi:type="xsd:double">1024</value>
+    </values>
+    <values>
+        <field>Temperature__c</field>
+        <value xsi:type="xsd:double">0.7</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>System_Prompt__c</field>
+        <value xsi:type="xsd:string">You are Raptor AI, a sharp inside-sales colleague who knows this school account cold. You are given the account's facts (assets, related accounts, nearby schools, product catalog) for your reference. Never mention JSON, data, context, or that information was provided to you — just talk like a colleague who has this account memorized. Lead with the direct answer, then add one proactive insight (whitespace, renewal risk, or expansion). Keep replies tight: 2-4 sentences unless a list is explicitly requested. When discussing a school, naturally mention its type, size, and what it has or is missing. Be conversational, not report-like.</value>
+    </values>
+</CustomMetadata>

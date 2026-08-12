@@ -125,7 +125,7 @@ def _analyze_openrouter(extraction) -> dict:
             for img in extraction.page_images
         ]
     else:
-        model = config.OPENROUTER_MODEL
+        model = config.EXTRACTION_MODEL
         content = [{"type": "text", "text": _text_prompt(extraction)}]
 
     resp = client.chat.completions.create(
@@ -203,7 +203,7 @@ def summarize_rfp(context: str) -> str:
     if config.LLM_PROVIDER == "anthropic":
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model=config.ANTHROPIC_MODEL,
+            model=config.GENERATION_MODEL,
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -213,7 +213,7 @@ def summarize_rfp(context: str) -> str:
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
                     api_key=config.OPENROUTER_API_KEY)
     resp = client.chat.completions.create(
-        model=config.OPENROUTER_MODEL,
+        model=config.GENERATION_MODEL,
         max_tokens=2000,
         messages=[{"role": "user", "content": prompt}],
     )

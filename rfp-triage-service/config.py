@@ -15,12 +15,24 @@ PORT = int(os.environ.get("PORT", "8080"))
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-# Any OpenRouter model slug. Mini is dirt cheap and fine for extraction;
-# anthropic/claude-haiku or google/gemini-2.5-flash are good alternatives.
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-# Used for scanned/image-only documents. gpt-4o-mini handles vision, but a
-# stronger model earns its keep on messy scans.
+
+# Per-task model routing. Each stage can be tuned independently for cost vs.
+# quality. All default to cheap-but-capable models; override via env vars.
+#
+# EXTRACTION_MODEL: structured fact extraction from the ITB (high volume,
+#   schema-following - a mini/flash model is plenty).
+EXTRACTION_MODEL = os.environ.get(
+    "EXTRACTION_MODEL", "google/gemini-2.5-flash")
+# GENERATION_MODEL: user-facing Q&A + summaries (lower volume, quality
+#   visible to estimators - worth a stronger model).
+GENERATION_MODEL = os.environ.get(
+    "GENERATION_MODEL", "anthropic/claude-sonnet-4.5")
+# VISION_MODEL: scanned/image-only documents.
 VISION_MODEL = os.environ.get("VISION_MODEL", "openai/gpt-4o-mini")
+
+# Back-compat shim: older code referenced OPENROUTER_MODEL as the single
+# generation model. Keep it as the extraction default.
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", EXTRACTION_MODEL)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")

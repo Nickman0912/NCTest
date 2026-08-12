@@ -12,6 +12,7 @@ import isConfigured from '@salesforce/apex/RFPDeepDiveController.isConfigured';
 import getUploadUrl from '@salesforce/apex/RFPDeepDiveController.getUploadUrl';
 import ingestDocument from '@salesforce/apex/RFPDeepDiveController.ingestDocument';
 import getIngestStatus from '@salesforce/apex/RFPDeepDiveController.getIngestStatus';
+import getDocuments from '@salesforce/apex/RFPDeepDiveController.getDocuments';
 import summarize from '@salesforce/apex/RFPDeepDiveController.summarize';
 
 export default class RfpDeepDive extends LightningElement {
@@ -21,6 +22,7 @@ export default class RfpDeepDive extends LightningElement {
     @track draft = '';
     @track configured = true;
     @track uploads = [];
+    @track documents = [];
 
     isThinking = false;
     isSummarizing = false;
@@ -37,6 +39,20 @@ export default class RfpDeepDive extends LightningElement {
         return !!this.portalUrl;
     }
 
+    get hasDocuments() {
+        return this.documents.length > 0;
+    }
+
+    get chatDisabled() {
+        return !this.hasDocuments;
+    }
+
+    get inputPlaceholder() {
+        return this.hasDocuments
+            ? 'e.g. What are the liquidated damages?'
+            : 'Upload at least one document to start asking questions';
+    }
+
     suggestedQuestions = [
         'What are the liquidated damages?',
         'What are the insurance requirements?',
@@ -48,6 +64,25 @@ export default class RfpDeepDive extends LightningElement {
         isConfigured()
             .then(result => { this.configured = result; })
             .catch(() => { this.configured = false; });
+        this._loadDocuments();
+    }
+
+    async _loadDocuments() {
+        try {
+            const resp = await getDocuments({ rfpId: this.recordId });
+            if (resp.success) {
+                this.documents = (resp.documents || []).map((d, i) => ({
+                    key: `doc-${i}`,
+                    filename: d.filename,
+                    chunks: d.chunks,
+                    label: `${d.filename} (${d.chunks} sections)`
+                }));
+            }
+        } catch (e) {
+            // Non-fatal: the list just stays empty and chat stays gated.
+            // eslint-disable-next-line no-console
+            console.warn('Could not load documents', e);
+        }
     }
 
     get showConfigWarning() {
@@ -59,11 +94,19 @@ export default class RfpDeepDive extends LightningElement {
     }
 
     get sendDisabled() {
-        return this.isThinking || !this.draft.trim();
+        return this.isThinking || !this.draft.trim() || this.chatDisabled;
     }
 
     get summaryButtonLabel() {
         return this.isSummarizing ? 'Generating…' : 'Generate Summary';
+    }
+
+    get summaryDisabled() {
+        return this.isSummarizing || this.chatDisabled;
+    }
+
+    get qaDisabled() {
+        return this.isThinking || this.chatDisabled;
     }
 
     handleInput(event) {
@@ -91,7 +134,7 @@ export default class RfpDeepDive extends LightningElement {
 
     async handleSend() {
         const question = this.draft.trim();
-        if (!question || this.isThinking) return;
+        if (!question || this.isThinking || this.chatDisabled) return;
 
         this._pushMessage('user', question);
         this.draft = '';
@@ -114,7 +157,7 @@ export default class RfpDeepDive extends LightningElement {
     }
 
     async handleSummarize() {
-        if (this.isSummarizing) return;
+        if (this.isSummarizing || this.chatDisabled) return;
         this.isSummarizing = true;
         this._pushMessage('user', 'Generate a project summary and recommendation.');
         try {
@@ -191,6 +234,9 @@ export default class RfpDeepDive extends LightningElement {
         upload.done = true;
         upload.statusClass = 'upload-status ok';
         this.uploads = [...this.uploads];
+        // Refresh the ingested-documents list so the new file shows up and
+        // chat unlocks.
+        this._loadDocuments();
     }
 
     async _pollIngest(upload, filename) {

@@ -302,6 +302,31 @@ def test_ingest_status_unknown_job():
         mock.patch.stopall()
 
 
+def test_documents_lists_ingested_files():
+    mocks = _patch_deps()
+    mocks["rag"].list_documents = mock.Mock(return_value=[
+        {"filename": "spec.pdf", "chunks": 295},
+        {"filename": "letter.pdf", "chunks": 4}])
+    try:
+        r = _client().get("/documents?rfpId=a3cTEST")
+        assert r.status_code == 200
+        docs = r.get_json()["documents"]
+        assert len(docs) == 2
+        assert docs[0]["filename"] == "spec.pdf"
+        assert docs[0]["chunks"] == 295
+    finally:
+        mock.patch.stopall()
+
+
+def test_documents_requires_rfp_id():
+    mocks = _patch_deps()
+    try:
+        r = _client().get("/documents")
+        assert r.status_code == 400
+    finally:
+        mock.patch.stopall()
+
+
 def test_summarize_returns_summary_with_citations():
     mocks = _patch_deps()
     mocks["rag"].get_context = mock.Mock(return_value={

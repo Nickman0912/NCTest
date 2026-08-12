@@ -86,6 +86,21 @@ def get_job(job_key: str) -> dict:
             "filename": row[3]}
 
 
+def list_documents(rfp_id: str) -> list[dict]:
+    """Return the documents already ingested for an RFP, with chunk counts.
+
+    Drives the LWC's 'already uploaded' list so a user can see what's been
+    indexed and doesn't re-upload the same file. Ordered by filename.
+    """
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT source_file, COUNT(*) AS chunks "
+            "FROM document_chunks WHERE rfp_id = %s "
+            "GROUP BY source_file ORDER BY source_file",
+            (rfp_id,)).fetchall()
+    return [{"filename": r[0], "chunks": r[1]} for r in rows]
+
+
 def _embed(texts: list[str]) -> list[list[float]]:
     from openai import OpenAI
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
@@ -190,7 +205,7 @@ def ask(rfp_id: str, question: str) -> dict:
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
                     api_key=config.OPENROUTER_API_KEY)
     resp = client.chat.completions.create(
-        model=config.OPENROUTER_MODEL,
+        model=config.GENERATION_MODEL,
         max_tokens=1000,
         messages=[{
             "role": "user",

@@ -227,6 +227,27 @@ def ingest_status():
     return jsonify(job), 200
 
 
+@app.get("/documents")
+def list_documents():
+    """List documents already ingested for an RFP so the LWC can show what's
+    been indexed (and prevent duplicate re-uploads).
+    Query: ?rfpId=a3c..."""
+    if not _authorized():
+        return jsonify({"error": "unauthorized"}), 401
+    if not config.DATABASE_URL:
+        return jsonify({"error": "RAG not configured"}), 500
+
+    rfp_id = request.args.get("rfpId")
+    if not rfp_id:
+        return jsonify({"error": "rfpId is required"}), 400
+
+    try:
+        return jsonify({"documents": rag.list_documents(rfp_id)}), 200
+    except Exception:
+        logger.exception("Could not list documents")
+        return jsonify({"error": "could not list documents"}), 500
+
+
 @app.post("/summarize")
 def summarize():
     """Generate a project summary + recommendation from an RFP's ingested

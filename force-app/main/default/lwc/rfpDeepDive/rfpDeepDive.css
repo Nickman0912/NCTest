@@ -337,6 +337,43 @@
 .upload-status.warn { color: #d97706; }
 .upload-status.err { color: #dc2626; }
 
+/* Already-ingested documents list */
+.doc-list {
+    margin-top: 0.4rem;
+}
+
+.doc-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    margin-top: 0.3rem;
+}
+
+.doc-check {
+    color: #059669;
+    flex-shrink: 0;
+}
+
+.doc-name {
+    font-size: 0.78rem;
+    color: #065f46;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-empty {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-style: italic;
+    margin: 0.4rem 0 0;
+}
+
 /* Generate Summary */
 .summary-row {
     margin-bottom: 0.75rem;

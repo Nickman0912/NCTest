@@ -75,6 +75,14 @@ private class RFPDeepDiveControllerTest {
                 resp.setBody(JSON.serialize(new Map<String, Object>{
                     'status' => 'ingested', 'chunks' => 42
                 }));
+            } else if (ep.contains('/documents')) {
+                resp.setBody(JSON.serialize(new Map<String, Object>{
+                    'documents' => new List<Object>{
+                        new Map<String, Object>{
+                            'filename' => 'spec.pdf', 'chunks' => 295
+                        }
+                    }
+                }));
             } else if (ep.endsWith('/summarize')) {
                 resp.setBody(JSON.serialize(new Map<String, Object>{
                     'summary' => 'A project summary.',
@@ -165,6 +173,25 @@ private class RFPDeepDiveControllerTest {
     }
 
     @IsTest
+    static void getDocumentsReturnsIngestedFiles() {
+        RFP__c rfp = new RFP__c(Name = 'Test RFP');
+        insert rfp;
+
+        Test.setMock(HttpCalloutMock.class, new MockServiceRouter());
+        Test.startTest();
+        RFPDeepDiveController.DocumentListResponse resp =
+            RFPDeepDiveController.getDocuments(rfp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, resp);
+        if (resp.success) {
+            System.assertEquals(1, resp.documents.size());
+            System.assertEquals('spec.pdf', resp.documents[0].filename);
+            System.assertEquals(295, resp.documents[0].chunks);
+        }
+    }
+
+    @IsTest
     static void newMethodsValidateInputs() {
         Test.startTest();
         System.assertEquals(false,
@@ -173,6 +200,8 @@ private class RFPDeepDiveControllerTest {
             RFPDeepDiveController.ingestDocument(null, '', '').success);
         System.assertEquals(false,
             RFPDeepDiveController.getIngestStatus(null, '').success);
+        System.assertEquals(false,
+            RFPDeepDiveController.getDocuments(null).success);
         System.assertEquals(false,
             RFPDeepDiveController.summarize(null).success);
         Test.stopTest();

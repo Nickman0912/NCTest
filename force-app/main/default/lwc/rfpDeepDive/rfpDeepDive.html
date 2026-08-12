@@ -35,6 +35,22 @@
                 <label class="upload-label">Bid documents</label>
                 <input type="file" multiple onchange={handleFileChange}
                        accept=".pdf,.docx,.txt" class="file-input" />
+
+                <!-- Already-ingested documents (persist across page reloads) -->
+                <template if:true={hasDocuments}>
+                    <div class="doc-list">
+                        <template for:each={documents} for:item="doc">
+                            <div key={doc.key} class="doc-row">
+                                <lightning-icon icon-name="utility:check" size="xx-small" class="doc-check"></lightning-icon>
+                                <span class="doc-name">{doc.label}</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template if:false={hasDocuments}>
+                    <p class="doc-empty">No documents indexed yet. Upload the bid documents to enable the AI assistant.</p>
+                </template>
+
                 <template for:each={uploads} for:item="u">
                     <div key={u.key} class="upload-row">
                         <span class="upload-name">{u.name}</span>
@@ -45,7 +61,7 @@
 
             <!-- Generate Summary -->
             <div class="summary-row">
-                <button class="summary-btn" onclick={handleSummarize} disabled={isSummarizing}>
+                <button class="summary-btn" onclick={handleSummarize} disabled={summaryDisabled}>
                     <lightning-icon icon-name="utility:summary" size="x-small"></lightning-icon>
                     {summaryButtonLabel}
                 </button>
@@ -55,7 +71,7 @@
             <div class="quick-actions" if:false={hasMessages}>
                 <p class="quick-label">Try asking:</p>
                 <template for:each={suggestedQuestions} for:item="q">
-                    <button key={q} class="qa-btn" data-question={q} onclick={handleSuggested} disabled={isThinking}>
+                    <button key={q} class="qa-btn" data-question={q} onclick={handleSuggested} disabled={qaDisabled}>
                         {q}
                     </button>
                 </template>
@@ -101,12 +117,12 @@
             <div class="input-row">
                 <textarea
                     class="input-box"
-                    placeholder="e.g. What are the liquidated damages?"
+                    placeholder={inputPlaceholder}
                     value={draft}
                     oninput={handleInput}
                     onkeydown={handleKeyDown}
                     rows="2"
-                    disabled={isThinking}
+                    disabled={chatDisabled}
                 ></textarea>
                 <button class="send-btn" onclick={handleSend} disabled={sendDisabled}>
                     <lightning-icon icon-name="utility:send" size="x-small"></lightning-icon>

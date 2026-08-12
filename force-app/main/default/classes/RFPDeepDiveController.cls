@@ -47,6 +47,19 @@ public with sharing class RFPDeepDiveController {
         @AuraEnabled public String errorMessage;
     }
 
+    /** A document already ingested for this RFP. */
+    public class IngestedDocument {
+        @AuraEnabled public String filename;
+        @AuraEnabled public Integer chunks;
+    }
+
+    /** List of documents already ingested for this RFP. */
+    public class DocumentListResponse {
+        @AuraEnabled public List<IngestedDocument> documents;
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String errorMessage;
+    }
+
     /** Project summary returned to the LWC. */
     public class SummaryResponse {
         @AuraEnabled public String summary;
@@ -229,6 +242,58 @@ public with sharing class RFPDeepDiveController {
                 resp.success = true;
             } else {
                 resp.errorMessage = 'Status check returned ' + httpResp.getStatusCode();
+            }
+        } catch (Exception e) {
+            resp.errorMessage = e.getMessage();
+        }
+        return resp;
+    }
+
+    /**
+     * @description List documents already ingested for this RFP, so the LWC can
+     *              show what's indexed and prevent duplicate re-uploads.
+     */
+    @AuraEnabled
+    public static DocumentListResponse getDocuments(Id rfpId) {
+        DocumentListResponse resp = new DocumentListResponse();
+        resp.success = false;
+        resp.documents = new List<IngestedDocument>();
+        if (rfpId == null) {
+            resp.errorMessage = 'A record Id is required.';
+            return resp;
+        }
+        try {
+            RFP_Triage_Config__mdt cfg = getConfig();
+            if (cfg == null || String.isBlank(cfg.Endpoint__c)
+                    || String.isBlank(cfg.Webhook_Secret__c)) {
+                resp.errorMessage = 'RFP Triage is not configured.';
+                return resp;
+            }
+            String path = '/documents?rfpId='
+                + EncodingUtil.urlEncode(String.valueOf(rfpId), 'UTF-8');
+
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(cfg.Endpoint__c.removeEnd('/') + path);
+            req.setMethod('GET');
+            req.setHeader('X-Webhook-Secret', cfg.Webhook_Secret__c);
+            req.setTimeout(20000);
+
+            HttpResponse httpResp = new Http().send(req);
+            if (httpResp.getStatusCode() == 200) {
+                Map<String, Object> body =
+                    (Map<String, Object>) JSON.deserializeUntyped(httpResp.getBody());
+                for (Object d : (List<Object>) body.get('documents')) {
+                    Map<String, Object> dm = (Map<String, Object>) d;
+                    IngestedDocument doc = new IngestedDocument();
+                    doc.filename = (String) dm.get('filename');
+                    Object chunks = dm.get('chunks');
+                    doc.chunks = chunks == null
+                        ? null : Integer.valueOf(String.valueOf(chunks));
+                    resp.documents.add(doc);
+                }
+                resp.success = true;
+            } else {
+                resp.errorMessage = 'Document list returned ' + httpResp.getStatusCode();
             }
         } catch (Exception e) {
             resp.errorMessage = e.getMessage();

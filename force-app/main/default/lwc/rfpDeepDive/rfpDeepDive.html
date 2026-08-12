@@ -1,0 +1,114 @@
+<template>
+    <article class="slds-card dd-card">
+        <!-- Header -->
+        <div class="header-band">
+            <div class="header-inner">
+                <div class="header-icon-tile">
+                    <lightning-icon icon-name="utility:search" size="small"></lightning-icon>
+                </div>
+                <div class="header-text">
+                    <h2 class="header-title">RFP Deep Dive</h2>
+                    <p class="header-subtitle">Ask questions about the bid documents</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="dd-body">
+            <!-- Not configured warning -->
+            <template if:true={showConfigWarning}>
+                <div class="config-warning">
+                    <lightning-icon icon-name="utility:warning" size="x-small"></lightning-icon>
+                    <span>RFP Triage isn't configured. Populate the RFP Triage Config custom metadata record.</span>
+                </div>
+            </template>
+
+            <!-- Contractor portal link -->
+            <template if:true={hasPortalUrl}>
+                <div class="portal-link">
+                    <lightning-icon icon-name="utility:link" size="x-small"></lightning-icon>
+                    <a href={portalUrl} target="_blank" rel="noopener noreferrer">Open contractor portal to download documents</a>
+                </div>
+            </template>
+
+            <!-- Document upload (direct-to-GCS) -->
+            <div class="upload-section">
+                <label class="upload-label">Bid documents</label>
+                <input type="file" multiple onchange={handleFileChange}
+                       accept=".pdf,.docx,.txt" class="file-input" />
+                <template for:each={uploads} for:item="u">
+                    <div key={u.key} class="upload-row">
+                        <span class="upload-name">{u.name}</span>
+                        <span class={u.statusClass}>{u.status}</span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Generate Summary -->
+            <div class="summary-row">
+                <button class="summary-btn" onclick={handleSummarize} disabled={isSummarizing}>
+                    <lightning-icon icon-name="utility:summary" size="x-small"></lightning-icon>
+                    {summaryButtonLabel}
+                </button>
+            </div>
+
+            <!-- Suggested questions -->
+            <div class="quick-actions" if:false={hasMessages}>
+                <p class="quick-label">Try asking:</p>
+                <template for:each={suggestedQuestions} for:item="q">
+                    <button key={q} class="qa-btn" data-question={q} onclick={handleSuggested} disabled={isThinking}>
+                        {q}
+                    </button>
+                </template>
+            </div>
+
+            <!-- Chat thread -->
+            <div class="chat-thread" data-element="chatThread">
+                <template for:each={messages} for:item="msg">
+                    <div key={msg.id} class={msg.rowClass}>
+                        <div class="msg-bubble">
+                            <p class="msg-text">{msg.text}</p>
+                            <!-- Citations -->
+                            <template if:true={msg.hasCitations}>
+                                <div class="citations">
+                                    <p class="citations-label">Sources:</p>
+                                    <template for:each={msg.citations} for:item="cit">
+                                        <div key={cit.key} class="citation">
+                                            <span class="citation-file">{cit.file} (chunk {cit.chunk})</span>
+                                            <span class="citation-excerpt">{cit.excerpt}</span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <template if:true={isThinking}>
+                    <div class="msg-row msg-ai">
+                        <div class="msg-bubble typing">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Input -->
+            <div class="input-row">
+                <textarea
+                    class="input-box"
+                    placeholder="e.g. What are the liquidated damages?"
+                    value={draft}
+                    oninput={handleInput}
+                    onkeydown={handleKeyDown}
+                    rows="2"
+                    disabled={isThinking}
+                ></textarea>
+                <button class="send-btn" onclick={handleSend} disabled={sendDisabled}>
+                    <lightning-icon icon-name="utility:send" size="x-small"></lightning-icon>
+                </button>
+            </div>
+        </div>
+    </article>
+</template>

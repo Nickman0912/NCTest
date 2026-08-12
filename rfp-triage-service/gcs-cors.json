@@ -1,0 +1,11 @@
+[
+  {
+    "origin": [
+      "https://nclemens-dev-ed.lightning.force.com",
+      "https://nclemens-dev-ed.my.salesforce.com"
+    ],
+    "method": ["PUT", "GET", "HEAD"],
+    "responseHeader": ["Content-Type", "x-goog-resumable", "ETag"],
+    "maxAgeSeconds": 3600
+  }
+]

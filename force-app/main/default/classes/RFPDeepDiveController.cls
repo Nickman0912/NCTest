@@ -38,6 +38,15 @@ public with sharing class RFPDeepDiveController {
         @AuraEnabled public String errorMessage;
     }
 
+    /** Status of a background ingest job. */
+    public class IngestStatusResponse {
+        @AuraEnabled public String status;
+        @AuraEnabled public Integer chunks;
+        @AuraEnabled public String reason;
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String errorMessage;
+    }
+
     /** Project summary returned to the LWC. */
     public class SummaryResponse {
         @AuraEnabled public String summary;
@@ -149,7 +158,8 @@ public with sharing class RFPDeepDiveController {
 
     /**
      * @description After the LWC uploads a file direct-to-GCS, tell the service
-     *              to read it back and ingest it into the vector DB for RAG.
+     *              to start ingesting it into the vector DB. Returns immediately
+     *              with status 'processing'; poll getIngestStatus for completion.
      */
     @AuraEnabled
     public static IngestResponse ingestDocument(Id rfpId, String filename,
@@ -171,7 +181,55 @@ public with sharing class RFPDeepDiveController {
             resp.reason = (String) body.get('reason');
             Object chunks = body.get('chunks');
             resp.chunks = chunks == null ? null : Integer.valueOf(String.valueOf(chunks));
-            resp.success = resp.status == 'ingested';
+            // 'processing' means the background job started; 'ingested' means it
+            // finished synchronously (small docs). Both are non-error outcomes.
+            resp.success = resp.status == 'processing' || resp.status == 'ingested';
+        } catch (Exception e) {
+            resp.errorMessage = e.getMessage();
+        }
+        return resp;
+    }
+
+    /**
+     * @description Poll the status of a background ingest job.
+     */
+    @AuraEnabled
+    public static IngestStatusResponse getIngestStatus(Id rfpId, String filename) {
+        IngestStatusResponse resp = new IngestStatusResponse();
+        resp.success = false;
+        if (rfpId == null || String.isBlank(filename)) {
+            resp.errorMessage = 'A record Id and filename are required.';
+            return resp;
+        }
+        try {
+            RFP_Triage_Config__mdt cfg = getConfig();
+            if (cfg == null || String.isBlank(cfg.Endpoint__c)
+                    || String.isBlank(cfg.Webhook_Secret__c)) {
+                resp.errorMessage = 'RFP Triage is not configured.';
+                return resp;
+            }
+            String path = '/ingest-status?rfpId='
+                + EncodingUtil.urlEncode(String.valueOf(rfpId), 'UTF-8')
+                + '&filename=' + EncodingUtil.urlEncode(filename, 'UTF-8');
+
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(cfg.Endpoint__c.removeEnd('/') + path);
+            req.setMethod('GET');
+            req.setHeader('X-Webhook-Secret', cfg.Webhook_Secret__c);
+            req.setTimeout(20000);
+
+            HttpResponse httpResp = new Http().send(req);
+            if (httpResp.getStatusCode() == 200) {
+                Map<String, Object> body =
+                    (Map<String, Object>) JSON.deserializeUntyped(httpResp.getBody());
+                resp.status = (String) body.get('status');
+                resp.reason = (String) body.get('reason');
+                Object chunks = body.get('chunks');
+                resp.chunks = chunks == null ? null : Integer.valueOf(String.valueOf(chunks));
+                resp.success = true;
+            } else {
+                resp.errorMessage = 'Status check returned ' + httpResp.getStatusCode();
+            }
         } catch (Exception e) {
             resp.errorMessage = e.getMessage();
         }
@@ -225,7 +283,8 @@ public with sharing class RFPDeepDiveController {
         req.setBody(JSON.serialize(payload));
 
         HttpResponse httpResp = new Http().send(req);
-        if (httpResp.getStatusCode() != 200) {
+        // 200 = synchronous result; 202 = background job accepted (e.g. /ingest).
+        if (httpResp.getStatusCode() != 200 && httpResp.getStatusCode() != 202) {
             throw new CalloutException('Triage service returned '
                 + httpResp.getStatusCode() + ': '
                 + httpResp.getBody().abbreviate(200));

@@ -11,6 +11,7 @@ import ask from '@salesforce/apex/RFPDeepDiveController.ask';
 import isConfigured from '@salesforce/apex/RFPDeepDiveController.isConfigured';
 import getUploadUrl from '@salesforce/apex/RFPDeepDiveController.getUploadUrl';
 import ingestDocument from '@salesforce/apex/RFPDeepDiveController.ingestDocument';
+import getIngestStatus from '@salesforce/apex/RFPDeepDiveController.getIngestStatus';
 import summarize from '@salesforce/apex/RFPDeepDiveController.summarize';
 
 export default class RfpDeepDive extends LightningElement {
@@ -124,13 +125,14 @@ export default class RfpDeepDive extends LightningElement {
     }
 
     async handleFileChange(event) {
-        const files = event.target.files;
+        const input = event.target;  // capture now; event.target is null after awaits
+        const files = input.files;
         if (!files || !files.length) return;
         for (const file of files) {
             await this._uploadOne(file);
         }
         // Reset the input so the same file can be re-selected if needed.
-        event.target.value = '';
+        input.value = '';
     }
 
     async _uploadOne(file) {
@@ -154,19 +156,18 @@ export default class RfpDeepDive extends LightningElement {
             if (!put.ok) throw new Error(`Upload failed (${put.status})`);
 
             upload.status = 'Ingesting into AI index…';
+            this.uploads = [...this.uploads];
             const ing = await ingestDocument({
                 rfpId: this.recordId, filename: file.name, gcsPath: urlResp.gcsPath
             });
-            if (ing.success) {
-                upload.status = `Ready — ${ing.chunks} chunks indexed`;
-                upload.done = true;
-                upload.statusClass = 'upload-status ok';
-            } else if (ing.status === 'skipped') {
-                upload.status = `Skipped — ${ing.reason || 'unsupported'}`;
-                upload.done = true;
-                upload.statusClass = 'upload-status warn';
+            if (!ing.success) throw new Error(ing.errorMessage || 'Ingestion failed');
+
+            if (ing.status === 'ingested') {
+                // Small doc finished synchronously.
+                this._markReady(upload, ing.chunks);
             } else {
-                throw new Error(ing.errorMessage || 'Ingestion failed');
+                // Large doc: poll the background job until it completes.
+                await this._pollIngest(upload, file.name);
             }
         } catch (e) {
             upload.status = 'Error: ' + (e.body?.message || e.message);
@@ -175,6 +176,38 @@ export default class RfpDeepDive extends LightningElement {
         }
         // Trigger reactivity for the mutated object.
         this.uploads = [...this.uploads];
+    }
+
+    _markReady(upload, chunks) {
+        upload.status = `Ready — ${chunks} chunks indexed`;
+        upload.done = true;
+        upload.statusClass = 'upload-status ok';
+        this.uploads = [...this.uploads];
+    }
+
+    async _pollIngest(upload, filename) {
+        const maxAttempts = 60;      // ~5 minutes at 5s intervals
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            await new Promise(r => setTimeout(r, 5000));
+            const st = await getIngestStatus({ rfpId: this.recordId, filename });
+            if (!st.success) continue;  // transient; keep polling
+            if (st.status === 'ingested') {
+                this._markReady(upload, st.chunks);
+                return;
+            }
+            if (st.status === 'skipped') {
+                upload.status = `Skipped — ${st.reason || 'unsupported'}`;
+                upload.done = true;
+                upload.statusClass = 'upload-status warn';
+                this.uploads = [...this.uploads];
+                return;
+            }
+            if (st.status === 'error') {
+                throw new Error(st.reason || 'Ingestion failed');
+            }
+            // else still 'processing' / 'unknown' -> keep waiting
+        }
+        throw new Error('Timed out waiting for ingestion to finish');
     }
 
     _pushMessage(role, text, citations) {

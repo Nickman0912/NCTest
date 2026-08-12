@@ -8,6 +8,7 @@ Endpoints:
 """
 import base64
 import logging
+import threading
 
 from flask import Flask, jsonify, request
 
@@ -29,6 +30,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# In-memory ingestion job tracker. Keyed by "{rfp_id}/{filename}". Cloud Run
+# runs a single process per instance (gunicorn --workers 1), so a module-level
+# dict guarded by a lock is sufficient for tracking background ingest jobs.
+_ingest_jobs = {}
+_ingest_lock = threading.Lock()
+
+
+def _set_job(key, **fields):
+    with _ingest_lock:
+        _ingest_jobs.setdefault(key, {}).update(fields)
+
+
+def _get_job(key):
+    with _ingest_lock:
+        return dict(_ingest_jobs.get(key, {}))
 
 
 @app.get("/health")
@@ -136,8 +153,10 @@ def upload_url():
 
 @app.post("/ingest")
 def ingest_document():
-    """After the LWC has uploaded a file direct-to-GCS, pull the bytes back,
-    extract text, and ingest into the vector DB for RAG.
+    """After the LWC has uploaded a file direct-to-GCS, kick off ingestion in
+    the background and return 202 immediately. Large spec books take longer
+    than the 60s Apex callout timeout to download + extract + embed, so the
+    work runs in a thread and the LWC polls /ingest-status for completion.
     Body: {"rfpId": "a3c...", "filename": "spec.pdf", "gcsPath": "a3c.../spec.pdf"}
     """
     if not _authorized():
@@ -151,27 +170,60 @@ def ingest_document():
     if not rfp_id or not filename or not gcs_path:
         return jsonify({"error": "rfpId, filename and gcsPath are required"}), 400
 
+    key = f"{rfp_id}/{filename}"
+    _set_job(key, status="processing", filename=filename)
+    threading.Thread(
+        target=_run_ingest,
+        args=(key, rfp_id, filename, gcs_path),
+        daemon=True,
+    ).start()
+    return jsonify({"status": "processing"}), 202
+
+
+def _run_ingest(key, rfp_id, filename, gcs_path):
+    """Background worker: download from GCS, extract text, embed + store."""
     try:
         file_bytes = storage.download_blob(gcs_path)
     except Exception:
         logger.exception("Could not download %s from GCS", gcs_path)
-        return jsonify({"error": "could not read uploaded file"}), 502
+        _set_job(key, status="error", reason="could not read uploaded file")
+        return
 
     try:
         extraction = extractor.extract(file_bytes, filename)
         if extraction.method != "Text":
             # Vision extraction for reference docs is out of scope for v1.
             logger.info("Skipping vision ingestion for %s", filename)
-            return jsonify({"status": "skipped",
-                            "reason": "scanned/image-only document"}), 200
+            _set_job(key, status="skipped",
+                     reason="scanned/image-only document")
+            return
         chunks = rag.ingest(rfp_id, filename, extraction.text)
-        return jsonify({"status": "ingested", "chunks": chunks}), 200
+        logger.info("Ingested %s -> %d chunks", key, chunks)
+        _set_job(key, status="ingested", chunks=chunks)
     except ValueError as e:
         logger.warning("Could not ingest %s: %s", filename, e)
-        return jsonify({"status": "skipped", "reason": str(e)}), 200
+        _set_job(key, status="skipped", reason=str(e))
     except Exception:
         logger.exception("Ingestion failed for %s", filename)
-        return jsonify({"error": "ingestion failed"}), 500
+        _set_job(key, status="error", reason="ingestion failed")
+
+
+@app.get("/ingest-status")
+def ingest_status():
+    """Report the status of a background ingest job.
+    Query: ?rfpId=a3c...&filename=spec.pdf"""
+    if not _authorized():
+        return jsonify({"error": "unauthorized"}), 401
+
+    rfp_id = request.args.get("rfpId")
+    filename = request.args.get("filename")
+    if not rfp_id or not filename:
+        return jsonify({"error": "rfpId and filename are required"}), 400
+
+    job = _get_job(f"{rfp_id}/{filename}")
+    if not job:
+        return jsonify({"status": "unknown"}), 200
+    return jsonify(job), 200
 
 
 @app.post("/summarize")

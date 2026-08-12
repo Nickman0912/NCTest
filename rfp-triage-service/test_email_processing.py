@@ -208,6 +208,18 @@ def test_upload_url_returns_signed_url():
         mock.patch.stopall()
 
 
+def _wait_for_job(key, timeout=5.0):
+    """Poll the in-memory job store until the background ingest thread finishes."""
+    import time
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        job = main._get_job(key)
+        if job.get("status") in ("ingested", "skipped", "error"):
+            return job
+        time.sleep(0.05)
+    return main._get_job(key)
+
+
 def test_ingest_reads_gcs_and_ingests():
     mocks = _patch_deps()
     mocks["storage"].download_blob = mock.Mock(return_value=b"spec text")
@@ -217,8 +229,12 @@ def test_ingest_reads_gcs_and_ingests():
             r = _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "spec.pdf",
                 "gcsPath": "a3cTEST/spec.pdf"})
-        assert r.status_code == 200
-        assert r.get_json()["status"] == "ingested"
+        # Accepted for background processing.
+        assert r.status_code == 202
+        assert r.get_json()["status"] == "processing"
+        # Wait for the worker thread, then verify it ingested.
+        job = _wait_for_job("a3cTEST/spec.pdf")
+        assert job["status"] == "ingested"
         mocks["rag"].ingest.assert_called_once_with(
             "a3cTEST", "spec.pdf", "spec text")
     finally:
@@ -234,9 +250,38 @@ def test_ingest_skips_vision_docs():
             r = _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "scan.pdf",
                 "gcsPath": "a3cTEST/scan.pdf"})
-        assert r.status_code == 200
-        assert r.get_json()["status"] == "skipped"
+        assert r.status_code == 202
+        job = _wait_for_job("a3cTEST/scan.pdf")
+        assert job["status"] == "skipped"
         mocks["rag"].ingest.assert_not_called()
+    finally:
+        mock.patch.stopall()
+
+
+def test_ingest_status_endpoint_reports_job():
+    mocks = _patch_deps()
+    mocks["storage"].download_blob = mock.Mock(return_value=b"spec text")
+    try:
+        with mock.patch("extractor.extract",
+                        return_value=mock.Mock(method="Text", text="spec text")):
+            _client().post("/ingest", json={
+                "rfpId": "a3cTEST", "filename": "spec.pdf",
+                "gcsPath": "a3cTEST/spec.pdf"})
+        _wait_for_job("a3cTEST/spec.pdf")
+        r = _client().get("/ingest-status?rfpId=a3cTEST&filename=spec.pdf")
+        assert r.status_code == 200
+        assert r.get_json()["status"] == "ingested"
+        assert r.get_json()["chunks"] == 1
+    finally:
+        mock.patch.stopall()
+
+
+def test_ingest_status_unknown_job():
+    mocks = _patch_deps()
+    try:
+        r = _client().get("/ingest-status?rfpId=nope&filename=nope.pdf")
+        assert r.status_code == 200
+        assert r.get_json()["status"] == "unknown"
     finally:
         mock.patch.stopall()
 

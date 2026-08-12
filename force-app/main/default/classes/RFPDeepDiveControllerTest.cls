@@ -67,6 +67,11 @@ private class RFPDeepDiveControllerTest {
                     'gcsPath' => 'a3cTEST/spec.pdf'
                 }));
             } else if (ep.endsWith('/ingest')) {
+                resp.setStatusCode(202);
+                resp.setBody(JSON.serialize(new Map<String, Object>{
+                    'status' => 'processing'
+                }));
+            } else if (ep.contains('/ingest-status')) {
                 resp.setBody(JSON.serialize(new Map<String, Object>{
                     'status' => 'ingested', 'chunks' => 42
                 }));
@@ -106,7 +111,7 @@ private class RFPDeepDiveControllerTest {
     }
 
     @IsTest
-    static void ingestDocumentReturnsChunkCount() {
+    static void ingestDocumentStartsBackgroundJob() {
         RFP__c rfp = new RFP__c(Name = 'Test RFP');
         insert rfp;
 
@@ -114,6 +119,23 @@ private class RFPDeepDiveControllerTest {
         Test.startTest();
         RFPDeepDiveController.IngestResponse resp =
             RFPDeepDiveController.ingestDocument(rfp.Id, 'spec.pdf', 'a3cTEST/spec.pdf');
+        Test.stopTest();
+
+        System.assertNotEquals(null, resp);
+        if (resp.success) {
+            System.assertEquals('processing', resp.status);
+        }
+    }
+
+    @IsTest
+    static void getIngestStatusReturnsJobState() {
+        RFP__c rfp = new RFP__c(Name = 'Test RFP');
+        insert rfp;
+
+        Test.setMock(HttpCalloutMock.class, new MockServiceRouter());
+        Test.startTest();
+        RFPDeepDiveController.IngestStatusResponse resp =
+            RFPDeepDiveController.getIngestStatus(rfp.Id, 'spec.pdf');
         Test.stopTest();
 
         System.assertNotEquals(null, resp);
@@ -149,6 +171,8 @@ private class RFPDeepDiveControllerTest {
             RFPDeepDiveController.getUploadUrl(null, '', '').success);
         System.assertEquals(false,
             RFPDeepDiveController.ingestDocument(null, '', '').success);
+        System.assertEquals(false,
+            RFPDeepDiveController.getIngestStatus(null, '').success);
         System.assertEquals(false,
             RFPDeepDiveController.summarize(null).success);
         Test.stopTest();

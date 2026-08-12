@@ -42,7 +42,18 @@ def generate_upload_url(rfp_id: str, filename: str,
 
     Returns {"uploadUrl": ..., "gcsPath": "{rfp_id}/{filename}"}. The LWC PUTs
     the file bytes to uploadUrl, then calls /ingest with the gcsPath.
+
+    On Cloud Run the metadata-server credentials hold only a token, not a
+    private key, so we sign via the IAM Credentials API (signBlob) by passing
+    the runtime service account's email + a current access token. This needs
+    roles/iam.serviceAccountTokenCreator on the runtime SA (granted to itself).
     """
+    import google.auth
+    from google.auth.transport import requests as auth_requests
+
+    credentials, _ = google.auth.default()
+    credentials.refresh(auth_requests.Request())
+
     bucket = _bucket()
     gcs_path = f"{rfp_id}/{filename}"
     blob = bucket.blob(gcs_path)
@@ -51,6 +62,8 @@ def generate_upload_url(rfp_id: str, filename: str,
         expiration=datetime.timedelta(minutes=15),
         method="PUT",
         content_type=content_type or "application/octet-stream",
+        service_account_email=credentials.service_account_email,
+        access_token=credentials.token,
     )
     logger.info("Issued signed upload URL for %s", gcs_path)
     return {"uploadUrl": url, "gcsPath": gcs_path}

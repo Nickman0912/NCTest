@@ -50,13 +50,27 @@ def _patch_deps():
     fakes. config is patched (not the module-level env vars) so the gate flags
     work regardless of import order with other test files. Returns the mocks
     keyed by module name for assertions."""
+    # Back the rag job store with a real dict so set_job/get_job behave like
+    # the Postgres-backed implementation.
+    job_store = {}
+
+    def _set_job(key, rfp_id, filename, status, chunks=None, reason=None):
+        job_store[key] = {"status": status, "chunks": chunks,
+                          "reason": reason, "filename": filename}
+
+    def _get_job(key):
+        return dict(job_store.get(key, {}))
+
     mocks = {
         "analyzer": mock.Mock(
             analyze_rfp=mock.Mock(side_effect=_fake_analyze),
             score_rfp=_fake_score),
         "salesforce_client": mock.Mock(
             create_rfp_record=mock.Mock(return_value={"rfpId": "a3cTEST"})),
-        "rag": mock.Mock(ingest=mock.Mock(return_value=1)),
+        "rag": mock.Mock(
+            ingest=mock.Mock(return_value=1),
+            set_job=mock.Mock(side_effect=_set_job),
+            get_job=mock.Mock(side_effect=_get_job)),
         "storage": mock.Mock(upload_reference_doc=mock.Mock(
             return_value="gs://rfp-documents-poc/a3cTEST/spec.pdf")),
         "config": mock.Mock(
@@ -208,24 +222,25 @@ def test_upload_url_returns_signed_url():
         mock.patch.stopall()
 
 
-def _wait_for_job(key, timeout=5.0):
-    """Poll the in-memory job store until the background ingest thread finishes."""
+def _wait_for_job(key, mocks, timeout=5.0):
+    """Poll the (dict-backed) rag job store until the background ingest
+    thread finishes."""
     import time
     deadline = time.time() + timeout
     while time.time() < deadline:
-        job = main._get_job(key)
+        job = mocks["rag"].get_job(key)
         if job.get("status") in ("ingested", "skipped", "error"):
             return job
         time.sleep(0.05)
-    return main._get_job(key)
+    return mocks["rag"].get_job(key)
 
 
 def test_ingest_reads_gcs_and_ingests():
     mocks = _patch_deps()
     mocks["storage"].download_blob = mock.Mock(return_value=b"spec text")
     try:
-        with mock.patch("extractor.extract",
-                        return_value=mock.Mock(method="Text", text="spec text")):
+        long_text = "spec text " * 20  # > MIN_TEXT_CHARS so it isn't seen as a scan
+        with mock.patch("extractor.extract_text_only", return_value=long_text):
             r = _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "spec.pdf",
                 "gcsPath": "a3cTEST/spec.pdf"})
@@ -233,10 +248,10 @@ def test_ingest_reads_gcs_and_ingests():
         assert r.status_code == 202
         assert r.get_json()["status"] == "processing"
         # Wait for the worker thread, then verify it ingested.
-        job = _wait_for_job("a3cTEST/spec.pdf")
+        job = _wait_for_job("a3cTEST/spec.pdf", mocks)
         assert job["status"] == "ingested"
         mocks["rag"].ingest.assert_called_once_with(
-            "a3cTEST", "spec.pdf", "spec text")
+            "a3cTEST", "spec.pdf", long_text)
     finally:
         mock.patch.stopall()
 
@@ -245,14 +260,15 @@ def test_ingest_skips_vision_docs():
     mocks = _patch_deps()
     mocks["storage"].download_blob = mock.Mock(return_value=b"scan")
     try:
-        with mock.patch("extractor.extract",
-                        return_value=mock.Mock(method="Vision", page_images=[])):
+        # Scanned doc: text-only extraction yields almost nothing.
+        with mock.patch("extractor.extract_text_only", return_value=""):
             r = _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "scan.pdf",
                 "gcsPath": "a3cTEST/scan.pdf"})
         assert r.status_code == 202
-        job = _wait_for_job("a3cTEST/scan.pdf")
+        job = _wait_for_job("a3cTEST/scan.pdf", mocks)
         assert job["status"] == "skipped"
+        assert "scanned" in job["reason"]
         mocks["rag"].ingest.assert_not_called()
     finally:
         mock.patch.stopall()
@@ -262,12 +278,12 @@ def test_ingest_status_endpoint_reports_job():
     mocks = _patch_deps()
     mocks["storage"].download_blob = mock.Mock(return_value=b"spec text")
     try:
-        with mock.patch("extractor.extract",
-                        return_value=mock.Mock(method="Text", text="spec text")):
+        long_text = "spec text " * 20
+        with mock.patch("extractor.extract_text_only", return_value=long_text):
             _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "spec.pdf",
                 "gcsPath": "a3cTEST/spec.pdf"})
-        _wait_for_job("a3cTEST/spec.pdf")
+        _wait_for_job("a3cTEST/spec.pdf", mocks)
         r = _client().get("/ingest-status?rfpId=a3cTEST&filename=spec.pdf")
         assert r.status_code == 200
         assert r.get_json()["status"] == "ingested"

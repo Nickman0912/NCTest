@@ -31,21 +31,18 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# In-memory ingestion job tracker. Keyed by "{rfp_id}/{filename}". Cloud Run
-# runs a single process per instance (gunicorn --workers 1), so a module-level
-# dict guarded by a lock is sufficient for tracking background ingest jobs.
-_ingest_jobs = {}
-_ingest_lock = threading.Lock()
+# Ingest job state is persisted in Postgres (rag.set_job/get_job) so it
+# survives Cloud Run instance recycling - an in-memory dict would be wiped
+# whenever the instance scales down or is replaced mid-job.
 
-
-def _set_job(key, **fields):
-    with _ingest_lock:
-        _ingest_jobs.setdefault(key, {}).update(fields)
-
-
-def _get_job(key):
-    with _ingest_lock:
-        return dict(_ingest_jobs.get(key, {}))
+# Ensure the vector + ingest_jobs tables exist. Runs on startup inside Cloud
+# Run, where the Cloud SQL unix socket is reachable. Best-effort: if the DB
+# isn't configured (local testing), skip without crashing.
+if config.DATABASE_URL:
+    try:
+        rag.init_schema()
+    except Exception:
+        logger.exception("Could not initialize database schema")
 
 
 @app.get("/health")
@@ -171,7 +168,7 @@ def ingest_document():
         return jsonify({"error": "rfpId, filename and gcsPath are required"}), 400
 
     key = f"{rfp_id}/{filename}"
-    _set_job(key, status="processing", filename=filename)
+    rag.set_job(key, rfp_id, filename, "processing")
     threading.Thread(
         target=_run_ingest,
         args=(key, rfp_id, filename, gcs_path),
@@ -186,26 +183,30 @@ def _run_ingest(key, rfp_id, filename, gcs_path):
         file_bytes = storage.download_blob(gcs_path)
     except Exception:
         logger.exception("Could not download %s from GCS", gcs_path)
-        _set_job(key, status="error", reason="could not read uploaded file")
+        rag.set_job(key, rfp_id, filename, "error",
+                    reason="could not read uploaded file")
         return
 
     try:
-        extraction = extractor.extract(file_bytes, filename)
-        if extraction.method != "Text":
-            # Vision extraction for reference docs is out of scope for v1.
-            logger.info("Skipping vision ingestion for %s", filename)
-            _set_job(key, status="skipped",
-                     reason="scanned/image-only document")
+        # Text-only extraction: never renders page images, so scanned PDFs
+        # (common for construction document sets) are detected and skipped in
+        # seconds rather than after rendering every page.
+        text = extractor.extract_text_only(file_bytes, filename)
+        if len(text) < extractor.MIN_TEXT_CHARS:
+            logger.info("Skipping %s: scanned/image-only document (%d chars)",
+                        filename, len(text))
+            rag.set_job(key, rfp_id, filename, "skipped",
+                        reason="scanned/image-only document (no text layer)")
             return
-        chunks = rag.ingest(rfp_id, filename, extraction.text)
+        chunks = rag.ingest(rfp_id, filename, text)
         logger.info("Ingested %s -> %d chunks", key, chunks)
-        _set_job(key, status="ingested", chunks=chunks)
+        rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks)
     except ValueError as e:
         logger.warning("Could not ingest %s: %s", filename, e)
-        _set_job(key, status="skipped", reason=str(e))
+        rag.set_job(key, rfp_id, filename, "skipped", reason=str(e))
     except Exception:
         logger.exception("Ingestion failed for %s", filename)
-        _set_job(key, status="error", reason="ingestion failed")
+        rag.set_job(key, rfp_id, filename, "error", reason="ingestion failed")
 
 
 @app.get("/ingest-status")
@@ -220,7 +221,7 @@ def ingest_status():
     if not rfp_id or not filename:
         return jsonify({"error": "rfpId and filename are required"}), 400
 
-    job = _get_job(f"{rfp_id}/{filename}")
+    job = rag.get_job(f"{rfp_id}/{filename}")
     if not job:
         return jsonify({"status": "unknown"}), 200
     return jsonify(job), 200

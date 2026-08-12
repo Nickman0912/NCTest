@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     embedding vector({EMBEDDING_DIMS})
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_rfp ON document_chunks (rfp_id);
+CREATE TABLE IF NOT EXISTS ingest_jobs (
+    job_key TEXT PRIMARY KEY,        -- rfp_id/filename
+    rfp_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    status TEXT NOT NULL,            -- processing | ingested | skipped | error
+    chunks INT,
+    reason TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 
@@ -49,6 +58,32 @@ def init_schema() -> None:
     with _connect() as conn:
         conn.execute(DDL)
     logger.info("Vector schema ready")
+
+
+# --- Ingest job tracking (Postgres-backed, survives instance recycling) ---
+
+def set_job(job_key: str, rfp_id: str, filename: str, status: str,
+            chunks: int = None, reason: str = None) -> None:
+    """Create or update an ingest job. Persists across Cloud Run instances."""
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO ingest_jobs (job_key, rfp_id, filename, status, "
+            "chunks, reason, updated_at) VALUES (%s,%s,%s,%s,%s,%s,now()) "
+            "ON CONFLICT (job_key) DO UPDATE SET status=EXCLUDED.status, "
+            "chunks=EXCLUDED.chunks, reason=EXCLUDED.reason, updated_at=now()",
+            (job_key, rfp_id, filename, status, chunks, reason))
+
+
+def get_job(job_key: str) -> dict:
+    """Return the job dict, or {} if unknown."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT status, chunks, reason, filename FROM ingest_jobs "
+            "WHERE job_key = %s", (job_key,)).fetchone()
+    if not row:
+        return {}
+    return {"status": row[0], "chunks": row[1], "reason": row[2],
+            "filename": row[3]}
 
 
 def _embed(texts: list[str]) -> list[list[float]]:

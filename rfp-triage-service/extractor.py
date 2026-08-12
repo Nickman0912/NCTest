@@ -26,8 +26,50 @@ class ExtractionResult:
 
 def pdf_page_count(file_bytes: bytes) -> int:
     """Return the number of pages in a PDF without extracting text."""
-    from pypdf import PdfReader
-    return len(PdfReader(io.BytesIO(file_bytes)).pages)
+    try:
+        import fitz  # PyMuPDF - fast
+        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+            return doc.page_count
+    except ImportError:
+        from pypdf import PdfReader
+        return len(PdfReader(io.BytesIO(file_bytes)).pages)
+
+
+def _pdf_text_fast(file_bytes: bytes) -> str:
+    """Extract embedded text with PyMuPDF (10-50x faster than pypdf on large
+    documents). Falls back to pypdf if PyMuPDF isn't available."""
+    try:
+        import fitz  # PyMuPDF
+        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+            return "\n".join(page.get_text() for page in doc).strip()
+    except ImportError:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages = []
+        for i, page in enumerate(reader.pages):
+            try:
+                pages.append(page.extract_text() or "")
+            except Exception:
+                logger.warning("Failed to extract page %s", i)
+        return "\n".join(pages).strip()
+
+
+def extract_text_only(file_bytes: bytes, filename: str) -> str:
+    """Extract embedded text without ever rendering page images.
+
+    Used by the RAG ingest path. Unlike extract(), this never triggers the
+    vision/render path - for a scanned PDF it returns whatever little text is
+    present (often empty) so the caller can skip it quickly instead of
+    rendering every page to PNG (which is very slow on large document sets).
+    """
+    lower = filename.lower()
+    if lower.endswith(".pdf"):
+        return _pdf_text_fast(file_bytes)
+    if lower.endswith(".docx"):
+        return _from_docx(file_bytes)
+    if lower.endswith((".txt", ".text", ".md")):
+        return file_bytes.decode("utf-8", errors="replace")
+    raise ValueError(f"Unsupported file type: {filename}")
 
 
 def extract(file_bytes: bytes, filename: str) -> ExtractionResult:

@@ -161,7 +161,8 @@ def get_context(rfp_id: str, max_chunks: int = 40) -> dict:
         f"[{r[0]} chunk {r[1]}]\n{r[2]}" for r in sampled)
     return {
         "context": context,
-        "citations": [{"file": r[0], "chunk": r[1], "excerpt": r[2][:300]}
+        # Full chunk content so the LWC can show the entire source subsection.
+        "citations": [{"file": r[0], "chunk": r[1], "excerpt": r[2]}
                       for r in sampled],
     }
 
@@ -205,6 +206,7 @@ def ask(rfp_id: str, question: str) -> dict:
 
     return {
         "answer": resp.choices[0].message.content,
+        # Full chunk content so the LWC can show the entire source subsection.
         "citations": [{"file": r[0], "chunk": r[1],
-                       "excerpt": r[2][:300]} for r in rows],
+                       "excerpt": r[2]} for r in rows],
     }

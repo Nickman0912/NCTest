@@ -67,13 +67,16 @@
                     <div key={msg.id} class={msg.rowClass}>
                         <div class="msg-bubble">
                             <p class="msg-text">{msg.text}</p>
-                            <!-- Citations -->
+                            <!-- Citations: hidden behind an accordion toggle -->
                             <template if:true={msg.hasCitations}>
-                                <div class="citations">
-                                    <p class="citations-label">Sources:</p>
+                                <button class="cite-toggle" data-msgid={msg.id} onclick={handleToggleCitations}>
+                                    <lightning-icon icon-name="utility:quote" size="xx-small"></lightning-icon>
+                                    {msg.citationToggleLabel}
+                                </button>
+                                <div class="citations" if:true={msg.citationsExpanded}>
                                     <template for:each={msg.citations} for:item="cit">
                                         <div key={cit.key} class="citation">
-                                            <span class="citation-file">{cit.file} (chunk {cit.chunk})</span>
+                                            <span class="citation-file">{cit.file} &mdash; section {cit.chunk}</span>
                                             <span class="citation-excerpt">{cit.excerpt}</span>
                                         </div>
                                     </template>

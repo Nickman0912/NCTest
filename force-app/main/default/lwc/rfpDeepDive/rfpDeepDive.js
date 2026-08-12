@@ -70,6 +70,13 @@ export default class RfpDeepDive extends LightningElement {
         this.draft = event.target.value;
     }
 
+    _clearInput() {
+        // The bound property alone doesn't always repaint the textarea, so
+        // reset the element directly too.
+        const box = this.template.querySelector('.input-box');
+        if (box) box.value = '';
+    }
+
     handleKeyDown(event) {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -88,6 +95,7 @@ export default class RfpDeepDive extends LightningElement {
 
         this._pushMessage('user', question);
         this.draft = '';
+        this._clearInput();
         this.isThinking = true;
 
         try {
@@ -211,20 +219,39 @@ export default class RfpDeepDive extends LightningElement {
     }
 
     _pushMessage(role, text, citations) {
+        const msgId = this._nextId++;
         const cits = (citations || []).map((c, i) => ({
-            key: `${this._nextId}-${i}`,
+            key: `${msgId}-${i}`,
             file: c.file,
             chunk: c.chunk,
             excerpt: c.excerpt
         }));
         this.messages.push({
-            id: this._nextId++,
+            id: msgId,
             rowClass: role === 'user' ? 'msg-row msg-user' : 'msg-row msg-ai',
             text,
             citations: cits,
-            hasCitations: cits.length > 0
+            hasCitations: cits.length > 0,
+            citationsExpanded: false,
+            citationToggleLabel: `Show ${cits.length} source${cits.length === 1 ? '' : 's'}`,
+            citationCount: cits.length
         });
         this._scrollToBottom();
+    }
+
+    handleToggleCitations(event) {
+        const msgId = Number(event.currentTarget.dataset.msgid);
+        this.messages = this.messages.map(m => {
+            if (m.id !== msgId) return m;
+            const expanded = !m.citationsExpanded;
+            return {
+                ...m,
+                citationsExpanded: expanded,
+                citationToggleLabel: expanded
+                    ? 'Hide sources'
+                    : `Show ${m.citationCount} source${m.citationCount === 1 ? '' : 's'}`
+            };
+        });
     }
 
     _scrollToBottom() {

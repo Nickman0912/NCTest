@@ -76,7 +76,8 @@ def _patch_deps():
         "config": mock.Mock(
             DATABASE_URL="postgres://test", GCS_BUCKET="rfp-documents-poc",
             TRIAGE_MAX_PAGES=30, TRIAGE_MAX_TEXT_CHARS=60000,
-            WEBHOOK_SECRET=""),
+            WEBHOOK_SECRET="", TRANSCRIPTION_MAX_PAGES=200,
+            TRANSCRIPTION_MODEL="test-vision"),
     }
     patcher = mock.patch.multiple(main, **mocks)
     patcher.start()
@@ -256,20 +257,57 @@ def test_ingest_reads_gcs_and_ingests():
         mock.patch.stopall()
 
 
-def test_ingest_skips_vision_docs():
+def test_ingest_transcribes_scanned_pdf():
     mocks = _patch_deps()
-    mocks["storage"].download_blob = mock.Mock(return_value=b"scan")
+    mocks["storage"].download_blob = mock.Mock(return_value=b"scan-bytes")
     try:
-        # Scanned doc: text-only extraction yields almost nothing.
-        with mock.patch("extractor.extract_text_only", return_value=""):
+        with mock.patch("extractor.extract_text_only", return_value=""), \
+             mock.patch("extractor.transcribe_scanned_pdf",
+                        return_value="Transcribed page text " * 10):
+            r = _client().post("/ingest", json={
+                "rfpId": "a3cTEST", "filename": "scan.pdf",
+                "gcsPath": "a3cTEST/scan.pdf"})
+        assert r.status_code == 202
+        job = _wait_for_job("a3cTEST/scan.pdf", mocks)
+        assert job["status"] == "ingested"
+        # The transcription (not the raw bytes) is what got ingested.
+        assert mocks["rag"].ingest.called
+        ingested_text = mocks["rag"].ingest.call_args.args[2]
+        assert "Transcribed page text" in ingested_text
+    finally:
+        mock.patch.stopall()
+
+
+def test_ingest_skips_when_transcription_empty():
+    mocks = _patch_deps()
+    mocks["storage"].download_blob = mock.Mock(return_value=b"scan-bytes")
+    try:
+        with mock.patch("extractor.extract_text_only", return_value=""), \
+             mock.patch("extractor.transcribe_scanned_pdf",
+                        side_effect=ValueError("transcription produced no text")):
             r = _client().post("/ingest", json={
                 "rfpId": "a3cTEST", "filename": "scan.pdf",
                 "gcsPath": "a3cTEST/scan.pdf"})
         assert r.status_code == 202
         job = _wait_for_job("a3cTEST/scan.pdf", mocks)
         assert job["status"] == "skipped"
-        assert "scanned" in job["reason"]
         mocks["rag"].ingest.assert_not_called()
+    finally:
+        mock.patch.stopall()
+
+
+def test_text_pdf_does_not_transcribe():
+    mocks = _patch_deps()
+    mocks["storage"].download_blob = mock.Mock(return_value=b"pdf")
+    long_text = "real text layer " * 20  # > MIN_TEXT_CHARS
+    try:
+        with mock.patch("extractor.extract_text_only", return_value=long_text), \
+             mock.patch("extractor.transcribe_scanned_pdf") as tr:
+            _client().post("/ingest", json={
+                "rfpId": "a3cTEST", "filename": "spec.pdf",
+                "gcsPath": "a3cTEST/spec.pdf"})
+            _wait_for_job("a3cTEST/spec.pdf", mocks)
+        tr.assert_not_called()
     finally:
         mock.patch.stopall()
 

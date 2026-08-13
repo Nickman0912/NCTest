@@ -192,15 +192,33 @@ def _run_ingest(key, rfp_id, filename, gcs_path):
         # (common for construction document sets) are detected and skipped in
         # seconds rather than after rendering every page.
         text = extractor.extract_text_only(file_bytes, filename)
+        transcribed = False
         if len(text) < extractor.MIN_TEXT_CHARS:
-            logger.info("Skipping %s: scanned/image-only document (%d chars)",
-                        filename, len(text))
-            rag.set_job(key, rfp_id, filename, "skipped",
-                        reason="scanned/image-only document (no text layer)")
-            return
+            # Scanned/image-only PDF: transcribe via vision model instead of
+            # skipping. Only PDFs can be scanned, so guard on the extension.
+            if not filename.lower().endswith(".pdf"):
+                rag.set_job(key, rfp_id, filename, "skipped",
+                            reason="no extractable text layer")
+                return
+            logger.info("No text layer in %s; transcribing scanned pages",
+                        filename)
+            rag.set_job(key, rfp_id, filename, "processing")
+            text = extractor.transcribe_scanned_pdf(
+                file_bytes, config.TRANSCRIPTION_MAX_PAGES,
+                config.TRANSCRIPTION_MODEL)
+            transcribed = True
+            if len(text) < extractor.MIN_TEXT_CHARS:
+                rag.set_job(key, rfp_id, filename, "skipped",
+                            reason="scanned document; transcription yielded no usable text")
+                return
         chunks = rag.ingest(rfp_id, filename, text)
-        logger.info("Ingested %s -> %d chunks", key, chunks)
-        rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks)
+        logger.info("Ingested %s -> %d chunks (transcribed=%s)",
+                    key, chunks, transcribed)
+        if transcribed:
+            rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks,
+                        reason="transcribed from scanned pages")
+        else:
+            rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks)
     except ValueError as e:
         logger.warning("Could not ingest %s: %s", filename, e)
         rag.set_job(key, rfp_id, filename, "skipped", reason=str(e))
@@ -489,11 +507,16 @@ def _process_email(subject: str, body_text: str, source_email: str,
                 result = extractor.extract(file_bytes, filename)
                 if result.method == "Text":
                     rag.ingest(rfp_id, filename, result.text)
+                elif filename.lower().endswith(".pdf"):
+                    # Scanned reference doc: transcribe pages to text, then
+                    # ingest the transcription like any other document.
+                    text = extractor.transcribe_scanned_pdf(
+                        file_bytes, config.TRANSCRIPTION_MAX_PAGES,
+                        config.TRANSCRIPTION_MODEL)
+                    if text:
+                        rag.ingest(rfp_id, filename, text)
                 else:
-                    # Vision extraction for reference docs is out of scope for
-                    # v1 - log and skip.
-                    logger.info("Skipping vision ingestion for reference doc %s",
-                                filename)
+                    logger.info("Skipping non-PDF vision doc %s", filename)
             except ValueError as e:
                 logger.warning("Skipping reference doc %s: %s", filename, e)
 

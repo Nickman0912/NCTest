@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 MIN_TEXT_CHARS = 50
 # Cap pages sent to the vision model; keeps cost/latency bounded.
 MAX_VISION_PAGES = 15
+# DPI for transcription rendering. 150 is legible for body text; matches the
+# existing vision-path render scale.
+TRANSCRIPTION_DPI = 150
 
 
 @dataclass
@@ -125,6 +128,82 @@ def _render_pages(file_bytes: bytes) -> list[str]:
                        len(pdf), MAX_VISION_PAGES)
     pdf.close()
     return images
+
+
+def _render_all_pages(file_bytes: bytes, max_pages: int) -> list[str]:
+    """Render up to max_pages PDF pages to base64 PNGs (for transcription)."""
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument(file_bytes)
+    images = []
+    total = len(pdf)
+    for i in range(min(total, max_pages)):
+        bitmap = pdf[i].render(scale=TRANSCRIPTION_DPI / 72)
+        img = bitmap.to_pil()
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        images.append(base64.b64encode(buf.getvalue()).decode())
+    if total > max_pages:
+        logger.warning("PDF has %d pages; only first %d transcribed",
+                       total, max_pages)
+    pdf.close()
+    return images
+
+
+TRANSCRIBE_PROMPT = (
+    "Transcribe the text on this scanned document page exactly as it "
+    "appears, preserving reading order. Output plain text only: no "
+    "commentary, no markdown fences, no description of the page. If a page "
+    "region is illegible, omit it rather than guessing."
+)
+
+
+def transcribe_scanned_pdf(file_bytes: bytes, max_pages: int,
+                           model: str) -> str:
+    """Transcribe a scanned/image-only PDF to text via a vision model.
+
+    One page per request, in page order, so a single failure can't lose the
+    whole document. Returns the concatenated transcription. Raises ValueError
+    if nothing usable was produced.
+    """
+    import config
+    from openai import OpenAI
+
+    pages = _render_all_pages(file_bytes, max_pages)
+    if not pages:
+        raise ValueError("no pages rendered for transcription")
+
+    client = OpenAI(base_url="https://openrouter.ai/api/v1",
+                    api_key=config.OPENROUTER_API_KEY)
+
+    page_texts = []
+    for i, img in enumerate(pages):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                max_tokens=2000,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": TRANSCRIBE_PROMPT},
+                        {"type": "image_url",
+                         "image_url": {"url": f"data:image/png;base64,{img}"}},
+                    ],
+                }],
+            )
+            text = (resp.choices[0].message.content or "").strip()
+        except Exception:
+            logger.exception("Transcription failed on page %d", i)
+            text = ""
+        if text:
+            page_texts.append(text)
+        logger.info("Transcribed page %d/%d (%d chars)", i + 1, len(pages),
+                    len(text))
+
+    combined = "\n\n".join(page_texts).strip()
+    if not combined:
+        raise ValueError("transcription produced no text")
+    return combined
 
 
 def _from_docx(file_bytes: bytes) -> str:

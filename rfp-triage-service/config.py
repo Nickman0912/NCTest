@@ -29,6 +29,14 @@ GENERATION_MODEL = os.environ.get(
     "GENERATION_MODEL", "anthropic/claude-sonnet-4.5")
 # VISION_MODEL: scanned/image-only documents.
 VISION_MODEL = os.environ.get("VISION_MODEL", "openai/gpt-4o-mini")
+# TRANSCRIPTION_MODEL: vision model used to transcribe scanned PDF pages to
+#   text for RAG ingestion. MUST be vision-capable (DeepSeek chat models are
+#   text-only and will NOT work here). Gemini 2.5 Flash is the cheap default.
+TRANSCRIPTION_MODEL = os.environ.get(
+    "TRANSCRIPTION_MODEL", "google/gemini-2.5-flash")
+# Cap pages transcribed per document so a runaway scan can't blow up cost or
+# the background thread's runtime. Generous for real spec books.
+TRANSCRIPTION_MAX_PAGES = int(os.environ.get("TRANSCRIPTION_MAX_PAGES", "200"))
 
 # Back-compat shim: older code referenced OPENROUTER_MODEL as the single
 # generation model. Keep it as the extraction default.

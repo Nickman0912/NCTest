@@ -215,23 +215,29 @@ def _run_ingest(key, rfp_id, filename, gcs_path):
         logger.info("Ingested %s -> %d chunks (transcribed=%s)",
                     key, chunks, transcribed)
 
-        # Archive page images + index visual descriptions (multimodal RAG).
-        # ThreadPoolExecutor inside rag.ingest_page_images runs uploads in parallel.
-        if filename.lower().endswith(".pdf") and config.GCS_BUCKET:
-            try:
-                pages = extractor.render_pages_with_text(
-                    file_bytes, config.PAGE_IMAGE_MAX_PAGES,
-                    config.PAGE_IMAGE_DPI)
-                rag.ingest_page_images(rfp_id, filename, pages)
-            except Exception:
-                logger.exception("Page-image archiving failed for %s",
-                                 filename)
-
+        # Mark text ingest complete immediately so LWC polling turns green in seconds.
         if transcribed:
             rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks,
                         reason="transcribed from scanned pages")
         else:
             rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks)
+
+        # Archive page images + index visual descriptions in background (multimodal RAG).
+        # Cloud Run has --no-cpu-throttling enabled, so this thread runs at 100% CPU.
+        if filename.lower().endswith(".pdf") and config.GCS_BUCKET:
+            def _archive_pages():
+                try:
+                    logger.info("Starting background page image archiving for %s", filename)
+                    pages = extractor.render_pages_with_text(
+                        file_bytes, config.PAGE_IMAGE_MAX_PAGES,
+                        config.PAGE_IMAGE_DPI)
+                    rag.ingest_page_images(rfp_id, filename, pages)
+                    logger.info("Finished background page image archiving for %s", filename)
+                except Exception:
+                    logger.exception("Page-image archiving failed for %s",
+                                     filename)
+
+            threading.Thread(target=_archive_pages, daemon=True).start()
     except ValueError as e:
         logger.warning("Could not ingest %s: %s", filename, e)
         rag.set_job(key, rfp_id, filename, "skipped", reason=str(e))

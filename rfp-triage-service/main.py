@@ -283,6 +283,27 @@ def list_documents():
         return jsonify({"error": "could not list documents"}), 500
 
 
+@app.post("/documents/delete")
+def delete_documents():
+    """Delete all chunks, page images, and jobs for an RFP."""
+    if not _authorized():
+        return jsonify({"error": "unauthorized"}), 401
+    if not config.DATABASE_URL:
+        return jsonify({"error": "RAG not configured"}), 500
+
+    body = request.get_json(silent=True) or {}
+    rfp_id = body.get("rfpId")
+    if not rfp_id:
+        return jsonify({"error": "rfpId is required"}), 400
+
+    try:
+        res = rag.delete_rfp_documents(rfp_id)
+        return jsonify(res), 200
+    except Exception:
+        logger.exception("Could not delete documents for %s", rfp_id)
+        return jsonify({"error": "deletion failed"}), 500
+
+
 @app.post("/summarize")
 def summarize():
     """Generate a project summary + recommendation from an RFP's ingested

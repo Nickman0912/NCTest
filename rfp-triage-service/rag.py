@@ -269,6 +269,16 @@ def ingest_page_images(rfp_id: str, source_file: str,
     return stored
 
 
+def delete_rfp_documents(rfp_id: str) -> dict:
+    """Delete all chunks, page images, and ingest jobs for an RFP."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM document_chunks WHERE rfp_id = %s", (rfp_id,))
+        conn.execute("DELETE FROM page_images WHERE rfp_id = %s", (rfp_id,))
+        conn.execute("DELETE FROM ingest_jobs WHERE rfp_id = %s", (rfp_id,))
+    logger.info("Deleted all RAG data for RFP %s", rfp_id)
+    return {"deleted": True, "rfpId": rfp_id}
+
+
 def retrieve_page_images(rfp_id: str, question: str,
                          top_k: int) -> list[dict]:
     """Return up to top_k page images most relevant to the question, ranked

@@ -205,30 +205,33 @@ yet — treat as an experiment, not a given.
 
 ## 6. Known Limitations
 
-### 6.1 Scanned/image-only PDFs — RESOLVED ✅
+### 6.1 Scanned/image-only PDFs & Technical Drawings (Multimodal RAG) — RESOLVED ✅
 
-**Status:** Resolved. Scanned PDFs are now transcribed and indexed for the
-Deep Dive assistant (implemented per
-`rfp-triage-service/SCANNED_PDF_TRANSCRIPTION_SPEC.md`).
+**Status:** Resolved. Scanned PDFs are transcribed to text, and image-heavy pages
+(floor plans, drawings, schematics) are archived to GCS, indexed with visual
+descriptions, and passed as vision input to the generation model with inline
+thumbnail citations in Salesforce (implemented per
+`rfp-triage-service/MULTIMODAL_RAG_SPEC.md`).
 
-**How it works now:** when `_run_ingest` (UI uploads) or `_process_email`
-(email reference docs) finds a PDF with no usable text layer, it renders the
-pages and transcribes them with a vision model (`TRANSCRIPTION_MODEL`,
-default `google/gemini-2.5-flash` — MUST be vision-capable; DeepSeek chat
-models are text-only and will not work), then chunks and embeds the
-transcription exactly like a text document. One page per request, in page
-order, so a single bad page can't lose a whole document. Text-layer PDFs are
-unaffected and never hit the vision model.
+**How it works now:**
+1. **Text transcription:** when `_run_ingest` or `_process_email` finds a PDF
+   with no usable text layer, it transcribes pages sequentially via
+   `TRANSCRIPTION_MODEL` (`google/gemini-2.5-flash`).
+2. **Page-image archiving & indexing:** every PDF page is rendered to PNG (150 DPI)
+   and stored in GCS under `{rfp_id}/pages/{file}/page_NNN.png`. Pages with sparse
+   text (drawings, site plans, schematics) get a visual description and vector
+   embedding in `page_images`.
+3. **Multimodal retrieval:** `ask()` queries both text chunks and relevant page
+   images. Retrieved drawings are passed as vision input to `GENERATION_MODEL`
+   (`anthropic/claude-sonnet-4.5`), allowing true spatial reasoning.
+4. **Visual citations:** `/ask` returns signed image URLs; the `rfpDeepDive` LWC
+   displays clickable thumbnail previews that open in a lightbox modal.
 
-**Config:** `TRANSCRIPTION_MODEL` (default `google/gemini-2.5-flash`) and
-`TRANSCRIPTION_MAX_PAGES` (default 200) via env vars.
+**Config:** `TRANSCRIPTION_MODEL`, `VISUAL_DESCRIPTION_MODEL`, `PAGE_IMAGE_DPI`,
+`PAGE_IMAGE_MAX_PAGES`, `VISUAL_RETRIEVAL_TOP_K`, and `PAGE_IMAGE_SIGNED_URL_MINUTES`.
 
-**Cost:** ~$0.002/page with Gemini Flash, so a 200-page scanned spec book is
-well under a dollar, once. Re-ingestion replaces chunks; it does not re-bill
-unless re-triggered.
-
-**Remaining nuance:** the triage (small-doc) vision path still caps at
-`MAX_VISION_PAGES = 15` for fact extraction — see Limitation 6.4.
+**Cost:** ~$0.80/month per 100k stored pages in GCS. ~$0.002 per visual description
+call during ingest. Under $0.01 per visual Q&A query.
 
 ### 6.2 Email body not queryable
 
@@ -252,11 +255,12 @@ partial extraction (confidence score is expected to reflect this).
 
 | # | Item | Notes | Effort |
 |---|---|---|---|
-| 1 | ~~Scanned-document RAG ingestion~~ **(DONE — closes Limitation 6.1)** | Implemented: `extractor.transcribe_scanned_pdf()` + branches in `_run_ingest` and `_process_email`. Deployed to Cloud Run. | — |
-| 2 | Hybrid retrieval (keyword + vector) | Add Postgres `tsvector` column + GIN index; blend keyword rank with cosine distance in `ask()`. Improves spec-section/code lookups. | Small |
-| 3 | Ingest email body as a source | In `_process_email`, `rag.ingest(rfp_id, "email-body", combined)` so the assistant can answer questions about the original email. | Small |
-| 4 | Generation-model A/B evaluation | Fixed set of real ITBs through candidate models (DeepSeek-V3, Kimi K2 vs. Sonnet baseline); compare schema compliance, answer quality, cost. Set winner via env var. | Small |
-| 5 | ANN index on embeddings | HNSW index on `document_chunks.embedding` if per-RFP chunk counts grow enough that filtered scans get slow. | Small |
+| 1 | ~~Scanned-document RAG ingestion~~ **(DONE — closes Limitation 6.1)** | Implemented: `extractor.transcribe_scanned_pdf()` + branches in `_run_ingest` and `_process_email`. | — |
+| 2 | ~~Multimodal RAG (Drawings & Inline Citations)~~ **(DONE)** | Implemented: GCS page archiving, `page_images` table, visual retrieval, and LWC lightbox thumbnails. | — |
+| 3 | Hybrid retrieval (keyword + vector) | Add Postgres `tsvector` column + GIN index; blend keyword rank with cosine distance in `ask()`. Improves spec-section/code lookups. | Small |
+| 4 | Ingest email body as a source | In `_process_email`, `rag.ingest(rfp_id, "email-body", combined)` so the assistant can answer questions about the original email. | Small |
+| 5 | Generation-model A/B evaluation | Fixed set of real ITBs through candidate models (DeepSeek-V3, Kimi K2 vs. Sonnet baseline); compare schema compliance, answer quality, cost. Set winner via env var. | Small |
+| 6 | ANN index on embeddings | HNSW index on `document_chunks.embedding` if per-RFP chunk counts grow enough that filtered scans get slow. | Small |
 
 ---
 

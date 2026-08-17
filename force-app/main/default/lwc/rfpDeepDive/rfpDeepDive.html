@@ -150,10 +150,23 @@
                 <div class="citations" if:true={msg.citationsExpanded}>
                   <template for:each={msg.citations} for:item="cit">
                     <div key={cit.key} class="citation">
-                      <span class="citation-file"
-                        >{cit.file} &mdash; section {cit.chunk}</span
-                      >
-                      <span class="citation-excerpt">{cit.excerpt}</span>
+                      <template if:true={cit.isVisual}>
+                        <button
+                          class="cite-thumb-btn"
+                          data-url={cit.imageUrl}
+                          data-label={cit.file}
+                          onclick={handleOpenImage}
+                        >
+                          <img src={cit.imageUrl} alt={cit.file} class="cite-thumb" />
+                          <span class="citation-file">{cit.file} &mdash; page {cit.page}</span>
+                        </button>
+                      </template>
+                      <template if:false={cit.isVisual}>
+                        <span class="citation-file"
+                          >{cit.file} &mdash; section {cit.chunk}</span
+                        >
+                        <span class="citation-excerpt">{cit.excerpt}</span>
+                      </template>
                     </div>
                   </template>
                 </div>
@@ -192,5 +205,15 @@
         </button>
       </div>
     </div>
+
+    <!-- Lightbox preview for visual citations -->
+    <template if:true={showLightbox}>
+      <div class="lightbox-backdrop" onclick={handleCloseLightbox}>
+        <div class="lightbox-panel" onclick={handleCloseLightbox}>
+          <img src={lightboxUrl} alt={lightboxLabel} class="lightbox-img" />
+          <p class="lightbox-caption">{lightboxLabel}</p>
+        </div>
+      </div>
+    </template>
   </article>
 </template>

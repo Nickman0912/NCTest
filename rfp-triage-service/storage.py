@@ -75,3 +75,44 @@ def download_blob(gcs_path: str) -> bytes:
     bucket = _bucket()
     blob = bucket.blob(gcs_path)
     return blob.download_as_bytes()
+
+
+def upload_page_image(rfp_id: str, source_file: str, page: int,
+                      png_bytes: bytes) -> str:
+    """Upload one rendered page PNG to GCS. Returns the gs:// URI."""
+    bucket = _bucket()
+    safe = source_file.replace("/", "_")
+    path = f"{rfp_id}/pages/{safe}/page_{page:03d}.png"
+    blob = bucket.blob(path)
+    blob.upload_from_string(png_bytes, content_type="image/png")
+    return f"gs://{config.GCS_BUCKET}/{path}"
+
+
+def generate_page_image_urls(gcs_paths: list[str],
+                             ttl_minutes: int) -> dict:
+    """Mint V4 signed GET URLs for a list of gs:// page-image URIs.
+
+    Returns {gs_uri: signed_url}. Uses the same IAM Credentials signBlob
+    pattern as generate_upload_url (Cloud Run has no private key)."""
+    if not gcs_paths:
+        return {}
+    import google.auth
+    from google.auth.transport import requests as auth_requests
+
+    credentials, _ = google.auth.default()
+    credentials.refresh(auth_requests.Request())
+    bucket = _bucket()
+    urls = {}
+    for uri in gcs_paths:
+        # uri is gs://bucket/path -> strip the scheme + bucket to get path
+        prefix = f"gs://{config.GCS_BUCKET}/"
+        path = uri[len(prefix):] if uri.startswith(prefix) else uri
+        blob = bucket.blob(path)
+        urls[uri] = blob.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(minutes=ttl_minutes),
+            method="GET",
+            service_account_email=credentials.service_account_email,
+            access_token=credentials.token,
+        )
+    return urls

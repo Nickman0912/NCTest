@@ -18,6 +18,11 @@ MAX_VISION_PAGES = 15
 # DPI for transcription rendering. 150 is legible for body text; matches the
 # existing vision-path render scale.
 TRANSCRIPTION_DPI = 150
+# A page is "image-heavy" (worth archiving + describing) when its extracted
+# text is sparse relative to a full page of text. Below this many characters
+# of text-layer content, we treat the page as carrying visual information
+# (drawings, plans, schedules as graphics) and archive its image.
+IMAGE_HEAVY_TEXT_THRESHOLD = 200
 
 
 @dataclass
@@ -148,6 +153,40 @@ def _render_all_pages(file_bytes: bytes, max_pages: int) -> list[str]:
                        total, max_pages)
     pdf.close()
     return images
+
+
+def render_pages_with_text(file_bytes: bytes, max_pages: int,
+                           dpi: int) -> list[dict]:
+    """Render up to max_pages PDF pages to base64 PNGs, flagging image-heavy
+    pages.
+
+    Returns a list of {"page": int (1-based), "png_b64": str,
+    "image_heavy": bool}. A page is image-heavy when its text layer is
+    sparse (drawings, plans, schedules as graphics). Raises ValueError if
+    the file is not a PDF.
+    """
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument(file_bytes)
+    out = []
+    total = len(pdf)
+    for i in range(min(total, max_pages)):
+        page = pdf[i]
+        text = (page.get_textpage().get_text_range() or "").strip()
+        bitmap = page.render(scale=dpi / 72)
+        img = bitmap.to_pil()
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        out.append({
+            "page": i + 1,
+            "png_b64": base64.b64encode(buf.getvalue()).decode(),
+            "image_heavy": len(text) < IMAGE_HEAVY_TEXT_THRESHOLD,
+        })
+    if total > max_pages:
+        logger.warning("PDF has %d pages; only first %d archived as images",
+                       total, max_pages)
+    pdf.close()
+    return out
 
 
 TRANSCRIBE_PROMPT = (

@@ -214,6 +214,19 @@ def _run_ingest(key, rfp_id, filename, gcs_path):
         chunks = rag.ingest(rfp_id, filename, text)
         logger.info("Ingested %s -> %d chunks (transcribed=%s)",
                     key, chunks, transcribed)
+
+        # Archive page images + index visual descriptions (multimodal RAG).
+        # Best-effort: never let image archiving fail the text ingest.
+        if filename.lower().endswith(".pdf") and config.GCS_BUCKET:
+            try:
+                pages = extractor.render_pages_with_text(
+                    file_bytes, config.PAGE_IMAGE_MAX_PAGES,
+                    config.PAGE_IMAGE_DPI)
+                rag.ingest_page_images(rfp_id, filename, pages)
+            except Exception:
+                logger.exception("Page-image archiving failed for %s",
+                                 filename)
+
         if transcribed:
             rag.set_job(key, rfp_id, filename, "ingested", chunks=chunks,
                         reason="transcribed from scanned pages")
@@ -517,6 +530,17 @@ def _process_email(subject: str, body_text: str, source_email: str,
                         rag.ingest(rfp_id, filename, text)
                 else:
                     logger.info("Skipping non-PDF vision doc %s", filename)
+
+                # Archive page images + index visual descriptions.
+                if filename.lower().endswith(".pdf") and config.GCS_BUCKET:
+                    try:
+                        pages = extractor.render_pages_with_text(
+                            file_bytes, config.PAGE_IMAGE_MAX_PAGES,
+                            config.PAGE_IMAGE_DPI)
+                        rag.ingest_page_images(rfp_id, filename, pages)
+                    except Exception:
+                        logger.exception("Page-image archiving failed for %s",
+                                         filename)
             except ValueError as e:
                 logger.warning("Skipping reference doc %s: %s", filename, e)
 

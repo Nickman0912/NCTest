@@ -19,6 +19,8 @@ public with sharing class RFPDeepDiveController {
         @AuraEnabled public String file;
         @AuraEnabled public Integer chunk;
         @AuraEnabled public String excerpt;
+        @AuraEnabled public String imageUrl;
+        @AuraEnabled public Integer page;
     }
 
     /** Signed-URL upload session returned to the LWC. */
@@ -117,15 +119,9 @@ public with sharing class RFPDeepDiveController {
                 Map<String, Object> body =
                     (Map<String, Object>) JSON.deserializeUntyped(httpResp.getBody());
                 resp.answer = (String) body.get('answer');
-                resp.citations = new List<Citation>();
-                for (Object c : (List<Object>) body.get('citations')) {
-                    Map<String, Object> cm = (Map<String, Object>) c;
-                    Citation cit = new Citation();
-                    cit.file = (String) cm.get('file');
-                    cit.chunk = cm.get('chunk') == null
-                        ? null : Integer.valueOf(String.valueOf(cm.get('chunk')));
-                    cit.excerpt = (String) cm.get('excerpt');
-                    resp.citations.add(cit);
+                resp.citations = parseCitations(body.get('citations'));
+                if (body.containsKey('image_citations') && body.get('image_citations') != null) {
+                    resp.citations.addAll(parseCitations(body.get('image_citations')));
                 }
                 resp.success = true;
             } else {
@@ -368,6 +364,9 @@ public with sharing class RFPDeepDiveController {
             cit.chunk = cm.get('chunk') == null
                 ? null : Integer.valueOf(String.valueOf(cm.get('chunk')));
             cit.excerpt = (String) cm.get('excerpt');
+            cit.imageUrl = (String) cm.get('imageUrl');
+            Object pg = cm.get('page');
+            cit.page = pg == null ? null : Integer.valueOf(String.valueOf(pg));
             out.add(cit);
         }
         return out;

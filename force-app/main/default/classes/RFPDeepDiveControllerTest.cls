@@ -17,6 +17,13 @@ private class RFPDeepDiveControllerTest {
                         'chunk' => 12,
                         'excerpt' => 'Section 4.1: Liquidated damages...'
                     }
+                },
+                'image_citations' => new List<Object>{
+                    new Map<String, Object>{
+                        'file' => 'plans.pdf',
+                        'page' => 4,
+                        'imageUrl' => 'https://storage.googleapis.com/signed-image'
+                    }
                 }
             }));
             return resp;
@@ -39,8 +46,11 @@ private class RFPDeepDiveControllerTest {
         System.assertNotEquals(null, resp);
         if (resp.success) {
             System.assertEquals('Liquidated damages are $500/day.', resp.answer);
-            System.assertEquals(1, resp.citations.size());
+            System.assertEquals(2, resp.citations.size());
             System.assertEquals('spec-book.pdf', resp.citations[0].file);
+            System.assertEquals('plans.pdf', resp.citations[1].file);
+            System.assertEquals('https://storage.googleapis.com/signed-image', resp.citations[1].imageUrl);
+            System.assertEquals(4, resp.citations[1].page);
         }
     }
 

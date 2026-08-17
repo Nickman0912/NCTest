@@ -69,15 +69,25 @@ def _patch_deps():
             create_rfp_record=mock.Mock(return_value={"rfpId": "a3cTEST"})),
         "rag": mock.Mock(
             ingest=mock.Mock(return_value=1),
+            ingest_page_images=mock.Mock(return_value=1),
             set_job=mock.Mock(side_effect=_set_job),
             get_job=mock.Mock(side_effect=_get_job)),
-        "storage": mock.Mock(upload_reference_doc=mock.Mock(
-            return_value="gs://rfp-documents-poc/a3cTEST/spec.pdf")),
+        "storage": mock.Mock(
+            upload_reference_doc=mock.Mock(
+                return_value="gs://rfp-documents-poc/a3cTEST/spec.pdf"),
+            upload_page_image=mock.Mock(
+                return_value="gs://rfp-documents-poc/a3cTEST/pages/spec.pdf/page_001.png"),
+            generate_page_image_urls=mock.Mock(return_value={
+                "gs://rfp-documents-poc/a3cTEST/pages/spec.pdf/page_001.png": "https://storage.googleapis.com/signed-page"
+            })),
         "config": mock.Mock(
             DATABASE_URL="postgres://test", GCS_BUCKET="rfp-documents-poc",
             TRIAGE_MAX_PAGES=30, TRIAGE_MAX_TEXT_CHARS=60000,
             WEBHOOK_SECRET="", TRANSCRIPTION_MAX_PAGES=200,
-            TRANSCRIPTION_MODEL="test-vision"),
+            TRANSCRIPTION_MODEL="test-vision",
+            VISUAL_DESCRIPTION_MODEL="test-vision",
+            PAGE_IMAGE_DPI=150, PAGE_IMAGE_MAX_PAGES=200,
+            VISUAL_RETRIEVAL_TOP_K=3, PAGE_IMAGE_SIGNED_URL_MINUTES=60),
     }
     patcher = mock.patch.multiple(main, **mocks)
     patcher.start()
@@ -377,6 +387,43 @@ def test_summarize_returns_summary_with_citations():
         body = r.get_json()
         assert body["summary"] == "A summary."
         assert body["citations"][0]["file"] == "spec.pdf"
+    finally:
+        mock.patch.stopall()
+
+
+def test_ingest_archives_page_images():
+    mocks = _patch_deps()
+    mocks["storage"].download_blob = mock.Mock(return_value=b"pdf-bytes")
+    try:
+        with mock.patch("extractor.extract_text_only",
+                        return_value="Some text " * 50), \
+             mock.patch("extractor.render_pages_with_text",
+                        return_value=[{"page": 1, "png_b64": "AAAA",
+                                       "image_heavy": True}]):
+            r = _client().post("/ingest", json={
+                "rfpId": "a3cTEST", "filename": "plans.pdf",
+                "gcsPath": "a3cTEST/plans.pdf"})
+            assert r.status_code == 202
+            _wait_for_job("a3cTEST/plans.pdf", mocks)
+            mocks["rag"].ingest_page_images.assert_called_once()
+    finally:
+        mock.patch.stopall()
+
+
+def test_ingest_survives_page_image_failure():
+    mocks = _patch_deps()
+    mocks["storage"].download_blob = mock.Mock(return_value=b"pdf-bytes")
+    try:
+        with mock.patch("extractor.extract_text_only",
+                        return_value="Some text " * 50), \
+             mock.patch("extractor.render_pages_with_text",
+                        side_effect=RuntimeError("render boom")):
+            r = _client().post("/ingest", json={
+                "rfpId": "a3cTEST", "filename": "plans.pdf",
+                "gcsPath": "a3cTEST/plans.pdf"})
+            assert r.status_code == 202
+            _wait_for_job("a3cTEST/plans.pdf", mocks)
+            assert mocks["rag"].get_job("a3cTEST/plans.pdf")["status"] == "ingested"
     finally:
         mock.patch.stopall()
 

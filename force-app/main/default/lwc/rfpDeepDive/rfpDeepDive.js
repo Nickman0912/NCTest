@@ -23,6 +23,8 @@ export default class RfpDeepDive extends LightningElement {
   @track configured = true;
   @track uploads = [];
   @track documents = [];
+  @track lightboxUrl = null;
+  @track lightboxLabel = "";
 
   isThinking = false;
   isSummarizing = false;
@@ -41,6 +43,10 @@ export default class RfpDeepDive extends LightningElement {
 
   get hasDocuments() {
     return this.documents.length > 0;
+  }
+
+  get showLightbox() {
+    return !!this.lightboxUrl;
   }
 
   get chatDisabled() {
@@ -294,7 +300,10 @@ export default class RfpDeepDive extends LightningElement {
       key: `${msgId}-${i}`,
       file: c.file,
       chunk: c.chunk,
-      excerpt: c.excerpt
+      excerpt: c.excerpt,
+      imageUrl: c.imageUrl || null,
+      page: c.page || null,
+      isVisual: !!c.imageUrl
     }));
     this.messages.push({
       id: msgId,
@@ -307,6 +316,16 @@ export default class RfpDeepDive extends LightningElement {
       citationCount: cits.length
     });
     this._scrollToBottom();
+  }
+
+  handleOpenImage(event) {
+    this.lightboxUrl = event.currentTarget.dataset.url;
+    this.lightboxLabel = event.currentTarget.dataset.label;
+  }
+
+  handleCloseLightbox() {
+    this.lightboxUrl = null;
+    this.lightboxLabel = "";
   }
 
   handleToggleCitations(event) {

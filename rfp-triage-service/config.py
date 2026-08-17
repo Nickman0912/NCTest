@@ -38,6 +38,24 @@ TRANSCRIPTION_MODEL = os.environ.get(
 # the background thread's runtime. Generous for real spec books.
 TRANSCRIPTION_MAX_PAGES = int(os.environ.get("TRANSCRIPTION_MAX_PAGES", "200"))
 
+# VISUAL_DESCRIPTION_MODEL: vision model used to write a one-paragraph
+#   visual description of image-heavy pages at ingest time. MUST be
+#   vision-capable (DeepSeek chat models are text-only and will NOT work).
+VISUAL_DESCRIPTION_MODEL = os.environ.get(
+    "VISUAL_DESCRIPTION_MODEL", "google/gemini-2.5-flash")
+# DPI for archived page images. 150 is legible for drawings and keeps each
+# PNG ~300-500KB.
+PAGE_IMAGE_DPI = int(os.environ.get("PAGE_IMAGE_DPI", "150"))
+# Cap pages archived per document so a runaway plan set can't blow up
+# storage or the background thread's runtime.
+PAGE_IMAGE_MAX_PAGES = int(os.environ.get("PAGE_IMAGE_MAX_PAGES", "200"))
+# How many page images to attach to a single /ask call as vision input.
+# Keep small: each image is real tokens and latency.
+VISUAL_RETRIEVAL_TOP_K = int(os.environ.get("VISUAL_RETRIEVAL_TOP_K", "3"))
+# Signed GET URL lifetime for page images shown in the LWC.
+PAGE_IMAGE_SIGNED_URL_MINUTES = int(
+    os.environ.get("PAGE_IMAGE_SIGNED_URL_MINUTES", "60"))
+
 # Back-compat shim: older code referenced OPENROUTER_MODEL as the single
 # generation model. Keep it as the extraction default.
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", EXTRACTION_MODEL)

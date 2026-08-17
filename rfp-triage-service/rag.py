@@ -9,6 +9,7 @@ Flow:
 The LLM never sees the whole document - only the handful of relevant
 paragraphs - which is what keeps long spec books reliable.
 """
+import base64
 import logging
 import uuid
 
@@ -45,6 +46,16 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
     reason TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS page_images (
+    id UUID PRIMARY KEY,
+    rfp_id TEXT NOT NULL,
+    source_file TEXT NOT NULL,
+    page INT NOT NULL,
+    gcs_uri TEXT NOT NULL,
+    visual_description TEXT,
+    embedding vector({EMBEDDING_DIMS})
+);
+CREATE INDEX IF NOT EXISTS idx_page_images_rfp ON page_images (rfp_id);
 """
 
 
@@ -182,6 +193,106 @@ def get_context(rfp_id: str, max_chunks: int = 40) -> dict:
     }
 
 
+DESCRIBE_PROMPT = (
+    "Describe this document page in one concise paragraph for search. "
+    "Capture: the sheet/page title or number if visible, the type of drawing "
+    "(floor plan, site plan, schedule, elevation, detail, schematic), the "
+    "rooms/areas/equipment shown, and any dimensions, counts, or callouts. "
+    "Plain text only, no markdown."
+)
+
+
+def _describe_page_image(png_b64: str) -> str:
+    from openai import OpenAI
+    client = OpenAI(base_url="https://openrouter.ai/api/v1",
+                    api_key=config.OPENROUTER_API_KEY)
+    try:
+        resp = client.chat.completions.create(
+            model=config.VISUAL_DESCRIPTION_MODEL,
+            max_tokens=300,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": DESCRIBE_PROMPT},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{png_b64}"}},
+                ],
+            }],
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception:
+        logger.exception("Visual description failed for a page")
+        return ""
+
+
+def ingest_page_images(rfp_id: str, source_file: str,
+                       pages: list[dict]) -> int:
+    """Store page images for a document and embed a visual description of
+    each image-heavy page. `pages` is the list from
+    extractor.render_pages_with_text(). Returns the number of pages stored.
+
+    Only image-heavy pages get a visual description + embedding (text pages
+    are already fully covered by document_chunks). All pages are archived to
+    GCS so any page can be shown as a visual citation later.
+    """
+    import storage
+    stored = 0
+    rows = []
+    for p in pages:
+        png = base64.b64decode(p["png_b64"])
+        gcs_uri = storage.upload_page_image(rfp_id, source_file, p["page"], png)
+        desc = ""
+        if p["image_heavy"]:
+            desc = _describe_page_image(p["png_b64"])
+        rows.append((str(uuid.uuid4()), rfp_id, source_file, p["page"],
+                     gcs_uri, desc))
+        stored += 1
+
+    # Embed only the non-empty descriptions, in batch.
+    descs = [r[5] for r in rows if r[5]]
+    embs = _embed(descs) if descs else []
+    emb_iter = iter(embs)
+
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM page_images WHERE rfp_id = %s AND source_file = %s",
+            (rfp_id, source_file))
+        for r in rows:
+            emb = next(emb_iter) if r[5] else None
+            conn.execute(
+                "INSERT INTO page_images (id, rfp_id, source_file, page, "
+                "gcs_uri, visual_description, embedding) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (r[0], r[1], r[2], r[3], r[4], r[5], emb))
+    logger.info("Archived %d page images for %s/%s", stored, rfp_id,
+                source_file)
+    return stored
+
+
+def retrieve_page_images(rfp_id: str, question: str,
+                         top_k: int) -> list[dict]:
+    """Return up to top_k page images most relevant to the question, ranked
+    by visual-description embedding similarity. Only image-heavy pages have
+    embeddings, so text-only pages are naturally excluded."""
+    question_emb = _embed([question])[0]
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT source_file, page, gcs_uri, visual_description "
+            "FROM page_images WHERE rfp_id = %s AND embedding IS NOT NULL "
+            "ORDER BY embedding <=> %s::vector LIMIT %s",
+            (rfp_id, str(question_emb), top_k)).fetchall()
+    return [{"file": r[0], "page": r[1], "gcs_uri": r[2],
+             "description": r[3]} for r in rows]
+
+
+def _gcs_uri_to_data_url(gcs_uri: str) -> str:
+    """Download a page image and return a data: URL for vision input."""
+    import storage
+    path = gcs_uri.split(f"gs://{config.GCS_BUCKET}/", 1)[-1]
+    png = storage.download_blob(path)
+    return "data:image/png;base64," + base64.b64encode(png).decode()
+
+
 def ask(rfp_id: str, question: str) -> dict:
     """Answer a question using only chunks from this RFP's documents."""
     question_emb = _embed([question])[0]
@@ -201,27 +312,69 @@ def ask(rfp_id: str, question: str) -> dict:
     context = "\n\n---\n\n".join(
         f"[{r[0]} chunk {r[1]}]\n{r[2]}" for r in rows)
 
+    # Visual retrieval: pull the most relevant drawing/plan pages and let
+    # the model see them. Best-effort: if it fails, fall back to text-only.
+    image_hits = []
+    try:
+        image_hits = retrieve_page_images(
+            rfp_id, question, config.VISUAL_RETRIEVAL_TOP_K)
+    except Exception:
+        logger.exception("Page-image retrieval failed; answering text-only")
+
+    content = [{
+        "type": "text",
+        "text": (
+            "You are helping a construction estimator review bid documents. "
+            "Answer the question using ONLY the excerpts and page images "
+            "below. If the answer isn't in them, say so plainly - do not "
+            "guess. Cite which excerpt or page each fact came from (reference "
+            "pages as 'filename page N').\n\n"
+            f"EXCERPTS:\n{context}\n\nQUESTION: {question}"
+        ),
+    }]
+    for hit in image_hits:
+        try:
+            data_url = _gcs_uri_to_data_url(hit["gcs_uri"])
+            content.append({
+                "type": "text",
+                "text": f"PAGE IMAGE: {hit['file']} page {hit['page']}",
+            })
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": data_url},
+            })
+        except Exception:
+            logger.exception("Failed to load page image for %s page %d",
+                             hit["file"], hit["page"])
+
     from openai import OpenAI
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
                     api_key=config.OPENROUTER_API_KEY)
     resp = client.chat.completions.create(
         model=config.GENERATION_MODEL,
         max_tokens=1000,
-        messages=[{
-            "role": "user",
-            "content": (
-                "You are helping a construction estimator review bid documents. "
-                "Answer the question using ONLY the excerpts below. If the "
-                "answer isn't in the excerpts, say so plainly - do not guess. "
-                "Cite which excerpt each fact came from.\n\n"
-                f"EXCERPTS:\n{context}\n\nQUESTION: {question}"
-            ),
-        }],
+        messages=[{"role": "user", "content": content}],
     )
+
+    # Mint signed URLs so the LWC can render the cited pages as thumbnails.
+    image_citations = []
+    if image_hits:
+        try:
+            import storage
+            url_map = storage.generate_page_image_urls(
+                [h["gcs_uri"] for h in image_hits],
+                config.PAGE_IMAGE_SIGNED_URL_MINUTES)
+            image_citations = [
+                {"file": h["file"], "page": h["page"],
+                 "imageUrl": url_map.get(h["gcs_uri"], "")}
+                for h in image_hits
+            ]
+        except Exception:
+            logger.exception("Could not mint page-image URLs")
 
     return {
         "answer": resp.choices[0].message.content,
-        # Full chunk content so the LWC can show the entire source subsection.
         "citations": [{"file": r[0], "chunk": r[1],
                        "excerpt": r[2]} for r in rows],
+        "image_citations": image_citations,
     }

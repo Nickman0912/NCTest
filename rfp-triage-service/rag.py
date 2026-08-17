@@ -306,8 +306,9 @@ def _gcs_uri_to_data_url(gcs_uri: str) -> str:
     """Download a page image and return a data: URL for vision input."""
     import storage
     path = gcs_uri.split(f"gs://{config.GCS_BUCKET}/", 1)[-1]
-    png = storage.download_blob(path)
-    return "data:image/png;base64," + base64.b64encode(png).decode()
+    img_bytes = storage.download_blob(path)
+    mime = "image/jpeg" if path.endswith(".jpg") else "image/png"
+    return f"data:{mime};base64," + base64.b64encode(img_bytes).decode()
 
 
 def ask(rfp_id: str, question: str) -> dict:

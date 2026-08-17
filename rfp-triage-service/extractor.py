@@ -126,7 +126,7 @@ def _render_pages(file_bytes: bytes) -> list[str]:
         bitmap = pdf[i].render(scale=150 / 72)
         img = bitmap.to_pil()
         buf = io.BytesIO()
-        img.save(buf, format="PNG", optimize=True)
+        img.save(buf, format="JPEG", quality=85)
         images.append(base64.b64encode(buf.getvalue()).decode())
     if len(pdf) > MAX_VISION_PAGES:
         logger.warning("PDF has %d pages; only first %d sent to vision model",
@@ -146,7 +146,7 @@ def _render_all_pages(file_bytes: bytes, max_pages: int) -> list[str]:
         bitmap = pdf[i].render(scale=TRANSCRIPTION_DPI / 72)
         img = bitmap.to_pil()
         buf = io.BytesIO()
-        img.save(buf, format="PNG", optimize=True)
+        img.save(buf, format="JPEG", quality=85)
         images.append(base64.b64encode(buf.getvalue()).decode())
     if total > max_pages:
         logger.warning("PDF has %d pages; only first %d transcribed",
@@ -157,7 +157,7 @@ def _render_all_pages(file_bytes: bytes, max_pages: int) -> list[str]:
 
 def render_pages_with_text(file_bytes: bytes, max_pages: int,
                            dpi: int) -> list[dict]:
-    """Render up to max_pages PDF pages to base64 PNGs, flagging image-heavy
+    """Render up to max_pages PDF pages to base64 images, flagging image-heavy
     pages.
 
     Returns a list of {"page": int (1-based), "png_b64": str,
@@ -173,14 +173,15 @@ def render_pages_with_text(file_bytes: bytes, max_pages: int,
     for i in range(min(total, max_pages)):
         page = pdf[i]
         text = (page.get_textpage().get_text_bounded() or "").strip()
+        is_heavy = len(text) < IMAGE_HEAVY_TEXT_THRESHOLD
         bitmap = page.render(scale=dpi / 72)
         img = bitmap.to_pil()
         buf = io.BytesIO()
-        img.save(buf, format="PNG", optimize=True)
+        img.save(buf, format="JPEG", quality=85)
         out.append({
             "page": i + 1,
             "png_b64": base64.b64encode(buf.getvalue()).decode(),
-            "image_heavy": len(text) < IMAGE_HEAVY_TEXT_THRESHOLD,
+            "image_heavy": is_heavy,
         })
     if total > max_pages:
         logger.warning("PDF has %d pages; only first %d archived as images",

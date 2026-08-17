@@ -78,13 +78,13 @@ def download_blob(gcs_path: str) -> bytes:
 
 
 def upload_page_image(rfp_id: str, source_file: str, page: int,
-                      png_bytes: bytes) -> str:
-    """Upload one rendered page PNG to GCS. Returns the gs:// URI."""
+                      image_bytes: bytes) -> str:
+    """Upload one rendered page image to GCS. Returns the gs:// URI."""
     bucket = _bucket()
     safe = source_file.replace("/", "_")
-    path = f"{rfp_id}/pages/{safe}/page_{page:03d}.png"
+    path = f"{rfp_id}/pages/{safe}/page_{page:03d}.jpg"
     blob = bucket.blob(path)
-    blob.upload_from_string(png_bytes, content_type="image/png")
+    blob.upload_from_string(image_bytes, content_type="image/jpeg")
     return f"gs://{config.GCS_BUCKET}/{path}"
 
 

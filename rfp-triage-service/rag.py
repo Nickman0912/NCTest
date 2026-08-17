@@ -225,6 +225,16 @@ def _describe_page_image(png_b64: str) -> str:
         return ""
 
 
+def _process_one_page(rfp_id: str, source_file: str, p: dict) -> tuple:
+    import storage
+    png = base64.b64decode(p["png_b64"])
+    gcs_uri = storage.upload_page_image(rfp_id, source_file, p["page"], png)
+    desc = ""
+    if p["image_heavy"]:
+        desc = _describe_page_image(p["png_b64"])
+    return (str(uuid.uuid4()), rfp_id, source_file, p["page"], gcs_uri, desc)
+
+
 def ingest_page_images(rfp_id: str, source_file: str,
                        pages: list[dict]) -> int:
     """Store page images for a document and embed a visual description of
@@ -235,18 +245,15 @@ def ingest_page_images(rfp_id: str, source_file: str,
     are already fully covered by document_chunks). All pages are archived to
     GCS so any page can be shown as a visual citation later.
     """
-    import storage
-    stored = 0
-    rows = []
-    for p in pages:
-        png = base64.b64decode(p["png_b64"])
-        gcs_uri = storage.upload_page_image(rfp_id, source_file, p["page"], png)
-        desc = ""
-        if p["image_heavy"]:
-            desc = _describe_page_image(p["png_b64"])
-        rows.append((str(uuid.uuid4()), rfp_id, source_file, p["page"],
-                     gcs_uri, desc))
-        stored += 1
+    from concurrent.futures import ThreadPoolExecutor
+
+    if not pages:
+        return 0
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_process_one_page, rfp_id, source_file, p)
+                   for p in pages]
+        rows = [f.result() for f in futures]
 
     # Embed only the non-empty descriptions, in batch.
     descs = [r[5] for r in rows if r[5]]
@@ -264,9 +271,9 @@ def ingest_page_images(rfp_id: str, source_file: str,
                 "gcs_uri, visual_description, embedding) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (r[0], r[1], r[2], r[3], r[4], r[5], emb))
-    logger.info("Archived %d page images for %s/%s", stored, rfp_id,
+    logger.info("Archived %d page images for %s/%s", len(rows), rfp_id,
                 source_file)
-    return stored
+    return len(rows)
 
 
 def delete_rfp_documents(rfp_id: str) -> dict:

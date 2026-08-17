@@ -172,7 +172,7 @@ def render_pages_with_text(file_bytes: bytes, max_pages: int,
     total = len(pdf)
     for i in range(min(total, max_pages)):
         page = pdf[i]
-        text = (page.get_textpage().get_text_range() or "").strip()
+        text = (page.get_textpage().get_text_bounded() or "").strip()
         bitmap = page.render(scale=dpi / 72)
         img = bitmap.to_pil()
         buf = io.BytesIO()

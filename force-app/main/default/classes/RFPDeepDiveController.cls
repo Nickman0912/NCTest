@@ -21,6 +21,22 @@ public with sharing class RFPDeepDiveController {
         @AuraEnabled public String excerpt;
         @AuraEnabled public String imageUrl;
         @AuraEnabled public Integer page;
+        @AuraEnabled public String description;
+    }
+
+    /** A plan or drawing sheet in the document set. */
+    public class DrawingSheet {
+        @AuraEnabled public String file;
+        @AuraEnabled public Integer page;
+        @AuraEnabled public String description;
+        @AuraEnabled public String imageUrl;
+    }
+
+    /** List of drawing sheets returned to the LWC. */
+    public class DrawingSheetsResponse {
+        @AuraEnabled public List<DrawingSheet> sheets;
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String errorMessage;
     }
 
     /** Signed-URL upload session returned to the LWC. */
@@ -298,6 +314,58 @@ public with sharing class RFPDeepDiveController {
     }
 
     /**
+     * @description List all archived plan/drawing sheets for this RFP.
+     */
+    @AuraEnabled
+    public static DrawingSheetsResponse getDrawingSheets(Id rfpId) {
+        DrawingSheetsResponse resp = new DrawingSheetsResponse();
+        resp.success = false;
+        resp.sheets = new List<DrawingSheet>();
+        if (rfpId == null) {
+            resp.errorMessage = 'A record Id is required.';
+            return resp;
+        }
+        try {
+            RFP_Triage_Config__mdt cfg = getConfig();
+            if (cfg == null || String.isBlank(cfg.Endpoint__c)
+                    || String.isBlank(cfg.Webhook_Secret__c)) {
+                resp.errorMessage = 'RFP Triage is not configured.';
+                return resp;
+            }
+            String path = '/drawing-sheets?rfpId='
+                + EncodingUtil.urlEncode(String.valueOf(rfpId), 'UTF-8');
+
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(cfg.Endpoint__c.removeEnd('/') + path);
+            req.setMethod('GET');
+            req.setHeader('X-Webhook-Secret', cfg.Webhook_Secret__c);
+            req.setTimeout(20000);
+
+            HttpResponse httpResp = new Http().send(req);
+            if (httpResp.getStatusCode() == 200) {
+                Map<String, Object> body =
+                    (Map<String, Object>) JSON.deserializeUntyped(httpResp.getBody());
+                for (Object s : (List<Object>) body.get('sheets')) {
+                    Map<String, Object> sm = (Map<String, Object>) s;
+                    DrawingSheet sheet = new DrawingSheet();
+                    sheet.file = (String) sm.get('file');
+                    Object pg = sm.get('page');
+                    sheet.page = pg == null ? null : Integer.valueOf(String.valueOf(pg));
+                    sheet.description = (String) sm.get('description');
+                    sheet.imageUrl = (String) sm.get('imageUrl');
+                    resp.sheets.add(sheet);
+                }
+                resp.success = true;
+            } else {
+                resp.errorMessage = 'Drawing sheets request returned ' + httpResp.getStatusCode();
+            }
+        } catch (Exception e) {
+            resp.errorMessage = e.getMessage();
+        }
+        return resp;
+    }
+
+    /**
      * @description Generate a project summary + recommendation from the RFP's
      *              ingested documents.
      */
@@ -365,6 +433,7 @@ public with sharing class RFPDeepDiveController {
                 ? null : Integer.valueOf(String.valueOf(cm.get('chunk')));
             cit.excerpt = (String) cm.get('excerpt');
             cit.imageUrl = (String) cm.get('imageUrl');
+            cit.description = (String) cm.get('description');
             Object pg = cm.get('page');
             cit.page = pg == null ? null : Integer.valueOf(String.valueOf(pg));
             out.add(cit);

@@ -13,6 +13,7 @@ import getUploadUrl from "@salesforce/apex/RFPDeepDiveController.getUploadUrl";
 import ingestDocument from "@salesforce/apex/RFPDeepDiveController.ingestDocument";
 import getIngestStatus from "@salesforce/apex/RFPDeepDiveController.getIngestStatus";
 import getDocuments from "@salesforce/apex/RFPDeepDiveController.getDocuments";
+import getDrawingSheets from "@salesforce/apex/RFPDeepDiveController.getDrawingSheets";
 import summarize from "@salesforce/apex/RFPDeepDiveController.summarize";
 
 export default class RfpDeepDive extends LightningElement {
@@ -23,6 +24,9 @@ export default class RfpDeepDive extends LightningElement {
   @track configured = true;
   @track uploads = [];
   @track documents = [];
+  @track drawingSheets = [];
+  @track showSheetsModal = false;
+  @track sheetsFilter = "";
   @track lightboxUrl = null;
   @track lightboxLabel = "";
 
@@ -43,6 +47,33 @@ export default class RfpDeepDive extends LightningElement {
 
   get hasDocuments() {
     return this.documents.length > 0;
+  }
+
+  get hasDrawingSheets() {
+    return this.drawingSheets.length > 0;
+  }
+
+  get drawingSheetsCount() {
+    return this.drawingSheets.length;
+  }
+
+  get sheetsButtonLabel() {
+    return `Plan Sheets (${this.drawingSheetsCount})`;
+  }
+
+  get filteredDrawingSheets() {
+    const q = (this.sheetsFilter || "").trim().toLowerCase();
+    if (!q) return this.drawingSheets;
+    return this.drawingSheets.filter(
+      (s) =>
+        (s.description && s.description.toLowerCase().includes(q)) ||
+        (s.file && s.file.toLowerCase().includes(q)) ||
+        String(s.page).includes(q)
+    );
+  }
+
+  get hasFilteredSheets() {
+    return this.filteredDrawingSheets.length > 0;
   }
 
   get showLightbox() {
@@ -75,6 +106,27 @@ export default class RfpDeepDive extends LightningElement {
         this.configured = false;
       });
     this._loadDocuments();
+    this._loadDrawingSheets();
+  }
+
+  async _loadDrawingSheets() {
+    try {
+      const resp = await getDrawingSheets({ rfpId: this.recordId });
+      if (resp.success) {
+        this.drawingSheets = (resp.sheets || []).map((s, i) => ({
+          key: `sheet-${i}`,
+          file: s.file,
+          page: s.page,
+          description: s.description || `Page ${s.page}`,
+          imageUrl: s.imageUrl,
+          label: `${s.file} — Page ${s.page}`
+        }));
+      }
+    } catch (e) {
+      // Non-fatal
+      // eslint-disable-next-line no-console
+      console.warn("Could not load drawing sheets", e);
+    }
   }
 
   async _loadDocuments() {
@@ -264,9 +316,10 @@ export default class RfpDeepDive extends LightningElement {
     upload.done = true;
     upload.statusClass = "upload-status ok";
     this.uploads = [...this.uploads];
-    // Refresh the ingested-documents list so the new file shows up and
-    // chat unlocks.
+    // Refresh the ingested-documents list and drawing sheets so the new file
+    // shows up and chat unlocks.
     this._loadDocuments();
+    this._loadDrawingSheets();
   }
 
   async _pollIngest(upload, filename) {
@@ -296,26 +349,57 @@ export default class RfpDeepDive extends LightningElement {
 
   _pushMessage(role, text, citations) {
     const msgId = this._nextId++;
-    const cits = (citations || []).map((c, i) => ({
-      key: `${msgId}-${i}`,
-      file: c.file,
-      chunk: c.chunk,
-      excerpt: c.excerpt,
-      imageUrl: c.imageUrl || null,
-      page: c.page || null,
-      isVisual: !!c.imageUrl
-    }));
+    const allCits = citations || [];
+    const visualCards = allCits
+      .filter((c) => c.imageUrl)
+      .map((c, i) => ({
+        key: `vc-${msgId}-${i}`,
+        file: c.file,
+        page: c.page,
+        description: c.description || `Page ${c.page}`,
+        imageUrl: c.imageUrl,
+        label: `${c.file} — Page ${c.page}`
+      }));
+    const textCits = allCits
+      .filter((c) => !c.imageUrl)
+      .map((c, i) => ({
+        key: `${msgId}-${i}`,
+        file: c.file,
+        chunk: c.chunk,
+        excerpt: c.excerpt
+      }));
+
     this.messages.push({
       id: msgId,
       rowClass: role === "user" ? "msg-row msg-user" : "msg-row msg-ai",
       text,
-      citations: cits,
-      hasCitations: cits.length > 0,
+      visualCards,
+      hasVisualCards: visualCards.length > 0,
+      citations: textCits,
+      hasCitations: textCits.length > 0,
       citationsExpanded: false,
-      citationToggleLabel: `Show ${cits.length} source${cits.length === 1 ? "" : "s"}`,
-      citationCount: cits.length
+      citationToggleLabel: `Show ${textCits.length} text source${textCits.length === 1 ? "" : "s"}`,
+      citationCount: textCits.length
     });
     this._scrollToBottom();
+  }
+
+  handleOpenSheetsModal() {
+    this.showSheetsModal = true;
+    this.sheetsFilter = "";
+  }
+
+  handleCloseSheetsModal() {
+    this.showSheetsModal = false;
+    this.sheetsFilter = "";
+  }
+
+  handleModalClick(event) {
+    event.stopPropagation();
+  }
+
+  handleSheetsSearch(event) {
+    this.sheetsFilter = event.target.value;
   }
 
   handleOpenImage(event) {

@@ -97,8 +97,8 @@
         </template>
       </div>
 
-      <!-- Generate Summary -->
-      <div class="summary-row">
+      <!-- Actions toolbar: Generate Summary & Browse Plan Sheets -->
+      <div class="actions-row">
         <button
           class="summary-btn"
           onclick={handleSummarize}
@@ -110,6 +110,19 @@
           ></lightning-icon>
           {summaryButtonLabel}
         </button>
+
+        <template if:true={hasDrawingSheets}>
+          <button
+            class="sheets-btn"
+            onclick={handleOpenSheetsModal}
+          >
+            <lightning-icon
+              icon-name="utility:photo"
+              size="x-small"
+            ></lightning-icon>
+            {sheetsButtonLabel}
+          </button>
+        </template>
       </div>
 
       <!-- Suggested questions -->
@@ -134,6 +147,34 @@
           <div key={msg.id} class={msg.rowClass}>
             <div class="msg-bubble">
               <p class="msg-text">{msg.text}</p>
+
+              <!-- Interactive Visual Plan Sheet Cards directly in the chat bubble -->
+              <template if:true={msg.hasVisualCards}>
+                <div class="visual-cards-grid">
+                  <template for:each={msg.visualCards} for:item="vc">
+                    <div
+                      key={vc.key}
+                      class="visual-card"
+                      data-url={vc.imageUrl}
+                      data-label={vc.label}
+                      onclick={handleOpenImage}
+                    >
+                      <div class="visual-card-thumb-wrap">
+                        <img src={vc.imageUrl} alt={vc.label} class="visual-card-thumb" />
+                        <div class="visual-card-overlay">
+                          <lightning-icon icon-name="utility:preview" size="x-small" class="preview-icon"></lightning-icon>
+                          <span>Open Full Size</span>
+                        </div>
+                      </div>
+                      <div class="visual-card-info">
+                        <span class="visual-card-title">{vc.label}</span>
+                        <span class="visual-card-desc">{vc.description}</span>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
               <!-- Citations: hidden behind an accordion toggle -->
               <template if:true={msg.hasCitations}>
                 <button
@@ -205,6 +246,70 @@
         </button>
       </div>
     </div>
+
+    <!-- Browse Plan Sheets Modal / Drawer -->
+    <template if:true={showSheetsModal}>
+      <div class="sheets-modal-backdrop" onclick={handleCloseSheetsModal}>
+        <div class="sheets-modal-panel" onclick={handleModalClick}>
+          <div class="sheets-modal-header">
+            <div class="sheets-header-left">
+              <lightning-icon icon-name="utility:photo" size="small" class="header-photo-icon"></lightning-icon>
+              <div>
+                <h3 class="sheets-modal-title">Plan & Drawing Sheets</h3>
+                <p class="sheets-modal-subtitle">{drawingSheetsCount} sheets indexed for this bid package</p>
+              </div>
+            </div>
+            <button class="modal-close-btn" onclick={handleCloseSheetsModal}>
+              <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+            </button>
+          </div>
+
+          <!-- Search / Filter input -->
+          <div class="sheets-search-bar">
+            <lightning-icon icon-name="utility:search" size="x-small" class="search-icon"></lightning-icon>
+            <input
+              type="text"
+              placeholder="Search by sheet number, room, floor, or trade (e.g. A02.01, electrical, level 1)..."
+              value={sheetsFilter}
+              oninput={handleSheetsSearch}
+              class="sheets-search-input"
+            />
+          </div>
+
+          <!-- Sheet Grid -->
+          <div class="sheets-grid">
+            <template if:true={hasFilteredSheets}>
+              <template for:each={filteredDrawingSheets} for:item="sheet">
+                <div
+                  key={sheet.key}
+                  class="sheet-tile"
+                  data-url={sheet.imageUrl}
+                  data-label={sheet.label}
+                  onclick={handleOpenImage}
+                >
+                  <div class="sheet-tile-img-wrap">
+                    <img src={sheet.imageUrl} alt={sheet.label} class="sheet-tile-img" />
+                    <div class="sheet-tile-hover">
+                      <lightning-icon icon-name="utility:expand" size="x-small" class="expand-icon"></lightning-icon>
+                      <span>View Full Size</span>
+                    </div>
+                  </div>
+                  <div class="sheet-tile-meta">
+                    <span class="sheet-tile-page">Page {sheet.page}</span>
+                    <span class="sheet-tile-desc">{sheet.description}</span>
+                  </div>
+                </div>
+              </template>
+            </template>
+            <template if:false={hasFilteredSheets}>
+              <div class="sheets-empty-filter">
+                <p>No plan sheets match "{sheetsFilter}".</p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- Lightbox preview for visual citations -->
     <template if:true={showLightbox}>

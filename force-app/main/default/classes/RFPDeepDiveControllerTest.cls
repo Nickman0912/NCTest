@@ -93,6 +93,16 @@ private class RFPDeepDiveControllerTest {
                         }
                     }
                 }));
+            } else if (ep.contains('/drawing-sheets')) {
+                resp.setBody(JSON.serialize(new Map<String, Object>{
+                    'sheets' => new List<Object>{
+                        new Map<String, Object>{
+                            'file' => 'plans.pdf', 'page' => 18,
+                            'description' => 'Sheet A02.01 Architectural Floor Plan',
+                            'imageUrl' => 'https://storage.googleapis.com/signed-sheet'
+                        }
+                    }
+                }));
             } else if (ep.endsWith('/summarize')) {
                 resp.setBody(JSON.serialize(new Map<String, Object>{
                     'summary' => 'A project summary.',
@@ -214,6 +224,27 @@ private class RFPDeepDiveControllerTest {
             RFPDeepDiveController.getDocuments(null).success);
         System.assertEquals(false,
             RFPDeepDiveController.summarize(null).success);
+        System.assertEquals(false,
+            RFPDeepDiveController.getDrawingSheets(null).success);
         Test.stopTest();
+    }
+
+    @IsTest
+    static void getDrawingSheetsReturnsSheets() {
+        RFP__c rfp = new RFP__c(Name = 'Test RFP');
+        insert rfp;
+
+        Test.setMock(HttpCalloutMock.class, new MockServiceRouter());
+        Test.startTest();
+        RFPDeepDiveController.DrawingSheetsResponse resp =
+            RFPDeepDiveController.getDrawingSheets(rfp.Id);
+        Test.stopTest();
+
+        System.assertNotEquals(null, resp);
+        if (resp.success) {
+            System.assertEquals(1, resp.sheets.size());
+            System.assertEquals(18, resp.sheets[0].page);
+            System.assertEquals('Sheet A02.01 Architectural Floor Plan', resp.sheets[0].description);
+        }
     }
 }

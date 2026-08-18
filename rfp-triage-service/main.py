@@ -285,6 +285,26 @@ def list_documents():
         return jsonify({"error": "could not list documents"}), 500
 
 
+@app.get("/drawing-sheets")
+def list_drawing_sheets():
+    """List all archived plan/drawing sheets for an RFP with signed URLs and descriptions.
+    Query: ?rfpId=a3c..."""
+    if not _authorized():
+        return jsonify({"error": "unauthorized"}), 401
+    if not config.DATABASE_URL:
+        return jsonify({"error": "RAG not configured"}), 500
+
+    rfp_id = request.args.get("rfpId")
+    if not rfp_id:
+        return jsonify({"error": "rfpId is required"}), 400
+
+    try:
+        return jsonify({"sheets": rag.list_drawing_sheets(rfp_id)}), 200
+    except Exception:
+        logger.exception("Could not list drawing sheets")
+        return jsonify({"error": "could not list drawing sheets"}), 500
+
+
 @app.post("/documents/delete")
 def delete_documents():
     """Delete all chunks, page images, and jobs for an RFP."""

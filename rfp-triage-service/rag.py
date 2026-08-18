@@ -112,6 +112,33 @@ def list_documents(rfp_id: str) -> list[dict]:
     return [{"filename": r[0], "chunks": r[1]} for r in rows]
 
 
+def list_drawing_sheets(rfp_id: str) -> list[dict]:
+    """Return all archived plan/drawing sheets for an RFP with signed URLs and descriptions."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT source_file, page, gcs_uri, visual_description "
+            "FROM page_images WHERE rfp_id = %s "
+            "ORDER BY source_file, page",
+            (rfp_id,)).fetchall()
+
+    if not rows:
+        return []
+
+    import storage
+    uris = [r[2] for r in rows]
+    urls = storage.generate_page_image_urls(uris, config.PAGE_IMAGE_SIGNED_URL_MINUTES)
+
+    return [
+        {
+            "file": r[0],
+            "page": r[1],
+            "description": r[3] or "",
+            "imageUrl": urls.get(r[2], ""),
+        }
+        for r in rows
+    ]
+
+
 def _embed(texts: list[str]) -> list[list[float]]:
     from openai import OpenAI
     client = OpenAI(base_url="https://openrouter.ai/api/v1",
@@ -384,6 +411,7 @@ def ask(rfp_id: str, question: str) -> dict:
                 config.PAGE_IMAGE_SIGNED_URL_MINUTES)
             image_citations = [
                 {"file": h["file"], "page": h["page"],
+                 "description": h.get("description", ""),
                  "imageUrl": url_map.get(h["gcs_uri"], "")}
                 for h in image_hits
             ]
